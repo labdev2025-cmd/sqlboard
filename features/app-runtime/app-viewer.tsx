@@ -249,13 +249,15 @@ export function AppViewer({
             value={page.id}
             onValueChange={(value) => setPageId(String(value))}
           >
-            <TabsList className="max-w-full overflow-x-auto">
-              {document.pages.map((p) => (
-                <TabsTrigger key={p.id} value={p.id}>
-                  {p.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="max-w-full [scrollbar-width:thin] overflow-x-auto overflow-y-hidden py-1">
+              <TabsList className="w-max">
+                {document.pages.map((p) => (
+                  <TabsTrigger key={p.id} value={p.id}>
+                    {p.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </Tabs>
         ) : null}
 
