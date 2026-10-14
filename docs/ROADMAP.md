@@ -27,16 +27,16 @@ Critérios de aceite:
 
 ## F1 — Conexões
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14.
 
 Entregas:
-- [ ] CRUD de conexões PostgreSQL (admin): host, porta, banco, usuário, senha, SSL, timeout e limite de linhas padrão.
-- [ ] Senha criptografada com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`), nunca devolvida ao navegador.
-- [ ] "Testar conexão" com mensagem de erro traduzida.
-- [ ] Introspecção de schema (schemas, tabelas, views, colunas, tipos, comentários, chaves primárias/estrangeiras e índices) com cache por conexão e botão de atualizar; navegador de schema.
-- [ ] Permissão por conexão (quais usuários/editores podem usar).
-- [ ] Banco de demonstração `sqlboard_demo` com dados fictícios e usuário somente leitura; conexão de demo criada pelo seed em dev.
-- [ ] Aviso na tela de cadastro recomendando usuário de banco só com SELECT.
+- [x] CRUD de conexões PostgreSQL (admin): host, porta, banco, usuário, senha, SSL, timeout e limite de linhas padrão.
+- [x] Senha criptografada com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`), nunca devolvida ao navegador.
+- [x] "Testar conexão" com mensagem de erro traduzida.
+- [x] Introspecção de schema (schemas, tabelas, views, colunas, tipos, comentários, chaves primárias/estrangeiras e índices) com cache por conexão e botão de atualizar; navegador de schema.
+- [x] Permissão por conexão (quais usuários/editores podem usar).
+- [x] Banco de demonstração `sqlboard_demo` com dados fictícios e usuário somente leitura; conexão de demo criada pelo seed em dev.
+- [x] Aviso na tela de cadastro recomendando usuário de banco só com SELECT.
 
 Critérios de aceite:
 - Testes: criptografia (ida e volta, IV único, adulteração detectada), permissões no servidor, introspecção contra Postgres real.
@@ -46,17 +46,17 @@ Critérios de aceite:
 
 ## F2 — Editor SQL, execução segura e parâmetros
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14.
 
 Entregas:
-- [ ] Biblioteca de queries salvas (nome, descrição, tags, conexão, SQL, parâmetros), com busca.
-- [ ] Editor CodeMirror 6 com dialeto PostgreSQL, autocomplete do schema introspectado, atalho para executar, tema claro/escuro.
-- [ ] Tokenizador/compilador de parâmetros `:nome` e `{{nome}}` (`src/lib/sql-params`), detecção automática e formulário de parâmetros tipados.
-- [ ] Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
-- [ ] Resultado em Data Table (tipos formatados, ordenação, paginação, busca, colunas redimensionáveis) + tempo de execução e quantidade de linhas.
-- [ ] Auditoria das execuções e tela de auditoria para admin.
-- [ ] "Melhorar com IA" (`PROMPT.md` §4.5): copiar prompt pronto (instruções + contexto opcional + query) para a área de transferência ou .txt; colar a resposta, extrair o SQL, validar parâmetros, ver diff, comparar execução das duas versões e aplicar.
-- [ ] Histórico de versões da query salva (restaurar versão anterior).
+- [x] Biblioteca de queries salvas (nome, descrição, tags, conexão, SQL, parâmetros), com busca.
+- [x] Editor CodeMirror 6 com dialeto PostgreSQL, autocomplete do schema introspectado, atalho para executar, tema claro/escuro.
+- [x] Tokenizador/compilador de parâmetros `:nome` e `{{nome}}` (`src/lib/sql-params`), detecção automática e formulário de parâmetros tipados.
+- [x] Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
+- [x] Resultado em Data Table (tipos formatados, ordenação, paginação, busca, colunas redimensionáveis) + tempo de execução e quantidade de linhas.
+- [x] Auditoria das execuções e tela de auditoria para admin.
+- [x] "Melhorar com IA" (`PROMPT.md` §4.5): copiar prompt pronto (instruções + contexto opcional + query) para a área de transferência ou .txt; colar a resposta, extrair o SQL, validar parâmetros, ver diff, comparar execução das duas versões e aplicar.
+- [x] Histórico de versões da query salva (restaurar versão anterior).
 
 Critérios de aceite:
 - Testes do tokenizador cobrindo strings, identificadores, comentários, dollar-quoting, `::`, `:=`, parâmetro repetido.
