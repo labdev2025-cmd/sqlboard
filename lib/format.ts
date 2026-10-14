@@ -69,12 +69,46 @@ export function toNumber(value: Cell): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+const DECIMAL = /^([+-]?)0*(\d*?)(?:\.(\d*?)0*)?$/
+
+/**
+ * Exact order of two decimal strings (int8/numeric beyond 2^53 lose precision
+ * as JS numbers). Returns null when either is not a plain decimal.
+ */
+export function compareDecimalStrings(a: string, b: string): number | null {
+  const ma = DECIMAL.exec(a.trim())
+  const mb = DECIMAL.exec(b.trim())
+  if (!ma || !mb || !/\d/.test(a) || !/\d/.test(b)) return null
+  const parse = (m: RegExpExecArray) => {
+    const int = m[2] ?? ""
+    const frac = m[3] ?? ""
+    const zero = !/[1-9]/.test(int + frac)
+    return { neg: m[1] === "-" && !zero, int, frac }
+  }
+  const x = parse(ma)
+  const y = parse(mb)
+  if (x.neg !== y.neg) return x.neg ? -1 : 1
+  let order =
+    x.int.length - y.int.length || (x.int < y.int ? -1 : x.int > y.int ? 1 : 0)
+  if (order === 0) {
+    const len = Math.max(x.frac.length, y.frac.length)
+    const fx = x.frac.padEnd(len, "0")
+    const fy = y.frac.padEnd(len, "0")
+    order = fx < fy ? -1 : fx > fy ? 1 : 0
+  }
+  return x.neg ? -order : order
+}
+
 /** Comparator that respects the column kind (numbers, dates, text). */
 export function compareCells(a: Cell, b: Cell, kind: ColumnKind): number {
   if (a === null || a === undefined)
     return b === null || b === undefined ? 0 : 1
   if (b === null || b === undefined) return -1
   if (kind === "integer" || kind === "decimal" || kind === "number") {
+    if (typeof a === "string" && typeof b === "string") {
+      const exact = compareDecimalStrings(a, b)
+      if (exact !== null) return exact
+    }
     return (toNumber(a) ?? 0) - (toNumber(b) ?? 0)
   }
   if (kind === "boolean") return Number(a === true) - Number(b === true)
