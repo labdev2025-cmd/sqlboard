@@ -119,6 +119,32 @@ test.describe("construtor de telas", () => {
     await expect(
       page.getByRole("link", { name: "Receita mensal" })
     ).toHaveCount(0)
+    await search.fill("")
+
+    // Rename/description and delete (with confirmation) from the card menu.
+    const temp = await page.request.post("/api/apps", {
+      data: { name: "Tela temporária" },
+    })
+    expect(temp.status()).toBe(201)
+    await page.reload()
+    await page.getByRole("button", { name: "Ações de Tela temporária" }).click()
+    await page.getByRole("menuitem", { name: "Renomear e descrição" }).click()
+    const meta = page.getByRole("dialog", { name: "Editar dados da tela" })
+    await meta.getByRole("textbox", { name: "Nome" }).fill("Tela descartável")
+    await meta.getByRole("button", { name: /Salvar/ }).click()
+    await expect(
+      page.getByRole("link", { name: "Tela descartável" })
+    ).toBeVisible()
+    await page
+      .getByRole("button", { name: "Ações de Tela descartável" })
+      .click()
+    await page.getByRole("menuitem", { name: "Excluir" }).click()
+    const confirm = page.getByRole("alertdialog")
+    await expect(confirm).toContainText("Tela descartável")
+    await confirm.getByRole("button", { name: "Excluir" }).click()
+    await expect(
+      page.getByRole("link", { name: "Tela descartável" })
+    ).toHaveCount(0)
   })
 
   test("gera tela automática, move e redimensiona (mouse e teclado), salva e reabre", async ({

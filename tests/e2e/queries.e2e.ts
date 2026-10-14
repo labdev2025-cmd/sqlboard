@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises"
+
 import { expect, test } from "@playwright/test"
 
 import { setSql } from "./support/editor"
@@ -87,6 +89,14 @@ test.describe("editor SQL", () => {
     await expect(page.getByText("Prompt copiado").first()).toBeVisible()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
       "```sql"
+    )
+    // Alternative when the clipboard is unavailable: download as .txt.
+    const download = page.waitForEvent("download")
+    await ai.getByRole("button", { name: "Baixar .txt" }).click()
+    const file = await download
+    expect(file.suggestedFilename()).toMatch(/\.txt$/)
+    expect(await readFile(await file.path(), "utf8")).toContain(
+      "Responda SOMENTE com a query final"
     )
 
     await ai.getByRole("tab", { name: "2. Colar query melhorada" }).click()

@@ -19,6 +19,7 @@ import {
   setShares,
 } from "@/server/services/apps"
 import { createConnection, setAccess } from "@/server/services/connections"
+import { createSavedQuery, updateSavedQuery } from "@/server/services/queries"
 
 import { demoConnectionInput, makeUser } from "../support/fixtures"
 
@@ -215,5 +216,61 @@ describe("telas: permissões no servidor", () => {
     expect(await status(deleteApp(outsider, appId))).toBe(404)
     await deleteApp(admin, copy.id)
     expect(await status(getAppForEdit(editor2, copy.id))).toBe(404)
+  })
+})
+
+describe("biblioteca de telas: nomes, filtros e cópia de queries", () => {
+  it("nome único por dono, filtros por escopo e tag", async () => {
+    const a = await makeUser("editor")
+    const b = await makeUser("editor")
+    const name = `Painel único ${Date.now()}`
+    const first = await createApp(a, { name, tags: ["Vendas"] })
+    // Same owner, same name: refused by the unique index (409 in the API).
+    await expect(createApp(a, { name })).rejects.toMatchObject({
+      cause: { code: "23505" },
+    })
+    // Another owner may use the same name.
+    const other = await createApp(b, { name, tags: ["rh"] })
+    await setShares(b, other.id, {
+      shares: [{ userId: a.id, permission: "view" }],
+    })
+    await publishApp(b, other.id).catch(() => undefined)
+
+    const mine = await listApps(a, { scope: "mine" })
+    expect(mine.map((x) => x.id)).toContain(first.id)
+    expect(mine.map((x) => x.id)).not.toContain(other.id)
+    const shared = await listApps(a, { scope: "shared" })
+    expect(shared.map((x) => x.id)).toEqual([other.id])
+    expect(shared[0]!.shared).toBe(true)
+    const byTag = await listApps(a, { tag: "vendas" })
+    expect(byTag.map((x) => x.id)).toEqual([first.id])
+    expect((await listApps(a, { q: "único" })).length).toBe(2)
+  })
+
+  it("query trazida da biblioteca é copiada com referência à origem", async () => {
+    const saved = await createSavedQuery(owner, {
+      name: "Clientes por UF (biblioteca)",
+      connectionId,
+      sql: "select uf, count(*) as total from loja.clientes group by uf",
+    })
+    const { id } = await createApp(owner, {
+      name: `Da biblioteca ${Date.now()}`,
+      fromQueryId: saved.id,
+    })
+    const copy = (await getAppForEdit(owner, id)).document.queries[0]!
+    expect(copy).toMatchObject({
+      name: "clientes_por_uf_biblioteca",
+      sourceQueryId: saved.id,
+      sql: saved.sql,
+    })
+    // Editing the library query does not change the screen.
+    await updateSavedQuery(owner, saved.id, {
+      name: saved.name,
+      connectionId,
+      sql: "select 1 as uf, 2 as total",
+    })
+    expect((await getAppForEdit(owner, id)).document.queries[0]!.sql).toBe(
+      saved.sql
+    )
   })
 })
