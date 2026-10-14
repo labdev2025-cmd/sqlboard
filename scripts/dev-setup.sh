@@ -27,13 +27,27 @@ DEMO_RO_PASSWORD="${DEMO_DB_PASSWORD:-demo_ro_local}"
 
 log() { printf '\033[1;34m[dev-setup]\033[0m %s\n' "$*"; }
 
+# Runs psql as a superuser. "-d <db>" selects the database; with
+# ADMIN_DATABASE_URL the database name is swapped inside the URL (psql would
+# otherwise ignore the URL host and fall back to the local socket).
 psql_admin() {
+  local db="postgres" args=()
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "-d" ]]; then
+      db="$2"
+      shift 2
+    else
+      args+=("$1")
+      shift
+    fi
+  done
   if [[ -n "${ADMIN_DATABASE_URL:-}" ]]; then
-    psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -q "$@"
+    local url="${ADMIN_DATABASE_URL%/*}/${db}"
+    psql "$url" -v ON_ERROR_STOP=1 -q "${args[@]}"
   elif [[ "$(id -u)" == "0" ]] && id postgres >/dev/null 2>&1; then
-    su postgres -c "psql -v ON_ERROR_STOP=1 -q $(printf '%q ' "$@")"
+    su postgres -c "psql -v ON_ERROR_STOP=1 -q -d $(printf '%q' "$db") $(printf '%q ' "${args[@]}")"
   else
-    sudo -u postgres psql -v ON_ERROR_STOP=1 -q "$@"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -q -d "$db" "${args[@]}"
   fi
 }
 
