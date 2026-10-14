@@ -28,3 +28,5 @@ CLAUDE.local.md
 !.vscode/extensions.json
 .DS_Store
 *.log
+tests/e2e/.auth/
+.data/
