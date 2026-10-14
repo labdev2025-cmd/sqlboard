@@ -131,6 +131,33 @@ psql_admin -d "$DEMO_DB" -c "
   ALTER ROLE ${DEMO_RO_USER} SET statement_timeout = '60s';
 "
 
+# Optional: MySQL/MariaDB demo for the F5 adapter (skipped when unavailable).
+# MYSQL_ADMIN_HOST/PORT/USER/PASSWORD point to an admin account (CI);
+# otherwise the local root socket is used.
+mysql_admin() {
+  if [[ -n "${MYSQL_ADMIN_HOST:-}" ]]; then
+    MYSQL_PWD="${MYSQL_ADMIN_PASSWORD:-}" mysql -h "$MYSQL_ADMIN_HOST" -P "${MYSQL_ADMIN_PORT:-3306}" -u "${MYSQL_ADMIN_USER:-root}" "$@"
+  else
+    mysql -u root "$@"
+  fi
+}
+if command -v mysql >/dev/null 2>&1 && mysql_admin -e "SELECT 1" >/dev/null 2>&1; then
+  log "Demo MySQL/MariaDB (sqlboard_demo)"
+  mysql_admin -e "
+    CREATE DATABASE IF NOT EXISTS sqlboard_demo CHARACTER SET utf8mb4;
+    CREATE USER IF NOT EXISTS 'sqlboard_ro'@'%' IDENTIFIED BY '${DEMO_RO_PASSWORD}';
+    CREATE USER IF NOT EXISTS 'sqlboard_owner'@'%' IDENTIFIED BY '${META_PASSWORD}';
+    GRANT SELECT ON sqlboard_demo.* TO 'sqlboard_ro'@'%';
+    GRANT ALL ON sqlboard_demo.* TO 'sqlboard_owner'@'%';
+    FLUSH PRIVILEGES;"
+  mysql_admin sqlboard_demo < scripts/demo/demo-mysql.sql
+else
+  log "MySQL/MariaDB indisponível: pulando a demo MySQL"
+fi
+
+log "Demo SQLite (data/sqlite/loja.db)"
+node scripts/demo-sqlite.mjs >/dev/null
+
 log "Migrações"
 pnpm --silent db:migrate
 

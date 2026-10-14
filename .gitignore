@@ -30,3 +30,5 @@ CLAUDE.local.md
 *.log
 tests/e2e/.auth/
 .data/
+data/
+data/sqlite-test/

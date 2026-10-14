@@ -18,6 +18,7 @@ export const E2E_ENV: Record<string, string> = {
   SQLBOARD_SCHEDULER: "off",
   SQLBOARD_AUTH_RATE_LIMIT: "off",
   SQLBOARD_OUTBOX_DIR: ".data/e2e-outbox",
+  SQLBOARD_SQLITE_DIR: "data/sqlite",
 }
 
 export const E2E_DB_ADMIN_URL = `${base}/postgres`

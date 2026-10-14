@@ -297,7 +297,8 @@ export function ConnectionForm({
             />
             {isSqlite ? (
               <FieldDescription>
-                Caminho no servidor; o arquivo é aberto em modo somente leitura.
+                Nome do arquivo dentro da pasta de bancos SQLite do servidor
+                (SQLBOARD_SQLITE_DIR); ele é aberto somente para leitura.
               </FieldDescription>
             ) : null}
             {errors.database ? (

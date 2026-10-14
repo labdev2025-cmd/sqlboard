@@ -4,7 +4,10 @@ import type { SqlDialect } from "@/lib/sql-params"
 import { decryptSecret, getKeyRing } from "@/server/crypto/secrets"
 import type { connections } from "@/server/db/schema"
 
+import { MssqlAdapter } from "./mssql"
+import { MysqlAdapter } from "./mysql"
 import { PostgresAdapter } from "./postgres"
+import { SqliteAdapter } from "./sqlite"
 import type { ConnectionConfig, DataSourceAdapter } from "./types"
 
 type ConnectionRow = typeof connections.$inferSelect
@@ -13,6 +16,9 @@ type Factory = (config: ConnectionConfig) => DataSourceAdapter
 
 const factories: Partial<Record<SqlDialect, Factory>> = {
   postgres: (config) => new PostgresAdapter(config),
+  mysql: (config) => new MysqlAdapter(config),
+  sqlite: (config) => new SqliteAdapter(config),
+  mssql: (config) => new MssqlAdapter(config),
 }
 
 /** Lets other dialect modules register themselves (F5). */
