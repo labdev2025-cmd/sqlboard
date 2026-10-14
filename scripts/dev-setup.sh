@@ -24,6 +24,8 @@ META_PASSWORD="${META_DB_PASSWORD:-sqlboard}"
 DEMO_DB="${DEMO_DB_NAME:-sqlboard_demo}"
 DEMO_RO_USER="${DEMO_DB_USER:-sqlboard_demo_ro}"
 DEMO_RO_PASSWORD="${DEMO_DB_PASSWORD:-demo_ro_local}"
+DEMO_RW_USER="${DEMO_DB_WRITE_USER:-sqlboard_demo_rw}"
+DEMO_RW_PASSWORD="${DEMO_DB_WRITE_PASSWORD:-demo_rw_local}"
 
 log() { printf '\033[1;34m[dev-setup]\033[0m %s\n' "$*"; }
 
@@ -129,6 +131,17 @@ psql_admin -d "$DEMO_DB" -c "
   GRANT SELECT ON ALL TABLES IN SCHEMA loja TO ${DEMO_RO_USER};
   ALTER ROLE ${DEMO_RO_USER} SET default_transaction_read_only = on;
   ALTER ROLE ${DEMO_RO_USER} SET statement_timeout = '60s';
+"
+
+# Usuário de escrita das ações (F6): só INSERT/UPDATE em loja.solicitacoes.
+ensure_role "$DEMO_RW_USER" "$DEMO_RW_PASSWORD"
+psql_admin -d "$DEMO_DB" -c "
+  GRANT CONNECT ON DATABASE ${DEMO_DB} TO ${DEMO_RW_USER};
+  GRANT USAGE ON SCHEMA loja TO ${DEMO_RW_USER};
+  GRANT SELECT ON loja.clientes, loja.solicitacoes TO ${DEMO_RW_USER};
+  GRANT INSERT, UPDATE ON loja.solicitacoes TO ${DEMO_RW_USER};
+  GRANT USAGE ON SEQUENCE loja.solicitacoes_id_seq TO ${DEMO_RW_USER};
+  ALTER ROLE ${DEMO_RW_USER} SET statement_timeout = '30s';
 "
 
 # Optional: MySQL/MariaDB demo for the F5 adapter (skipped when unavailable).

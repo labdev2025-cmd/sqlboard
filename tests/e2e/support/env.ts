@@ -15,6 +15,8 @@ export const E2E_ENV: Record<string, string> = {
   DEMO_DB_NAME: process.env.DEMO_DB_NAME ?? "sqlboard_demo",
   DEMO_DB_USER: process.env.DEMO_DB_USER ?? "sqlboard_demo_ro",
   DEMO_DB_PASSWORD: process.env.DEMO_DB_PASSWORD ?? "demo_ro_local",
+  DEMO_DB_WRITE_USER: process.env.DEMO_DB_WRITE_USER ?? "sqlboard_demo_rw",
+  DEMO_DB_WRITE_PASSWORD: process.env.DEMO_DB_WRITE_PASSWORD ?? "demo_rw_local",
   SQLBOARD_SCHEDULER: "off",
   SQLBOARD_AUTH_RATE_LIMIT: "off",
   SQLBOARD_OUTBOX_DIR: ".data/e2e-outbox",

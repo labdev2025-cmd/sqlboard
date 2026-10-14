@@ -23,6 +23,9 @@ import {
   type ExecOptions,
   type ExecutionHandle,
   type ExplainResult,
+  type WriteOptions,
+  type WriteResult,
+  tooManyRows,
 } from "./types"
 
 /**
@@ -49,11 +52,23 @@ function loadDriver() {
 const Database = loadDriver()
 let db
 try {
-  db = new Database(workerData.file, { readonly: true, fileMustExist: true })
-  db.pragma("query_only = ON")
-  db.defaultSafeIntegers(true)
   const op = workerData.op
-  if (op === "test") {
+  const writing = op === "write"
+  db = new Database(workerData.file, { readonly: !writing, fileMustExist: true })
+  if (!writing) db.pragma("query_only = ON")
+  db.defaultSafeIntegers(true)
+  if (writing) {
+    // One statement in an explicit transaction; closing the database without
+    // COMMIT (timeout: the worker is terminated) discards the changes.
+    const stmt = db.prepare(workerData.sql)
+    if (stmt.reader) throw Object.assign(new Error("A ação precisa ser um INSERT ou UPDATE."), { code: "SQLBOARD_NOT_WRITER" })
+    db.exec("BEGIN IMMEDIATE")
+    const info = stmt.run(...workerData.values)
+    const affectedRows = Number(info.changes)
+    if (affectedRows > workerData.maxAffectedRows || !workerData.commit) db.exec("ROLLBACK")
+    else db.exec("COMMIT")
+    parentPort.postMessage({ ok: true, affectedRows, committed: affectedRows <= workerData.maxAffectedRows && workerData.commit })
+  } else if (op === "test") {
     db.prepare("select 1").get()
     parentPort.postMessage({ ok: true })
   } else if (op === "execute" || op === "explain") {
@@ -97,6 +112,8 @@ try {
 
 type WorkerReply = {
   ok: boolean
+  affectedRows?: number
+  committed?: boolean
   message?: string
   code?: string
   columns?: { name: string; type: string | null }[]
@@ -125,6 +142,9 @@ export function translateSqliteError(reply: {
       "connection",
       message
     )
+  }
+  if (reply.code === "SQLBOARD_NOT_WRITER") {
+    return new DataSourceError(message, "query", message)
   }
   if (/more than one statement/i.test(message)) {
     return new DataSourceError(
@@ -298,6 +318,32 @@ export class SqliteAdapter implements DataSourceAdapter {
       truncated,
       durationMs: Math.round(performance.now() - started),
       limit: maxRows,
+    }
+  }
+
+  async executeWrite(
+    query: CompiledQuery,
+    opts: WriteOptions
+  ): Promise<WriteResult> {
+    const started = performance.now()
+    const reply = await this.runWorker(
+      {
+        op: "write",
+        sql: query.sql,
+        values: query.values,
+        maxAffectedRows: opts.maxAffectedRows,
+        commit: opts.commit,
+      },
+      opts.timeoutMs
+    )
+    const affectedRows = reply.affectedRows ?? 0
+    if (affectedRows > opts.maxAffectedRows) {
+      throw tooManyRows(affectedRows, opts.maxAffectedRows)
+    }
+    return {
+      affectedRows,
+      committed: Boolean(reply.committed),
+      durationMs: Math.round(performance.now() - started),
     }
   }
 

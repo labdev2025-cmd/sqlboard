@@ -18,6 +18,9 @@ import {
   type ExecOptions,
   type ExecutionHandle,
   type ExplainResult,
+  type WriteOptions,
+  type WriteResult,
+  tooManyRows,
 } from "./types"
 
 export function translateMssqlError(
@@ -285,6 +288,63 @@ export class MssqlAdapter implements DataSourceAdapter {
       truncated,
       durationMs: Math.round(performance.now() - started),
       limit: maxRows,
+    }
+  }
+
+  /**
+   * Write action: one parameterized statement in its own transaction, with
+   * LOCK_TIMEOUT and a client timer; committed only after the request has
+   * finished (rollback with an active request would leak the connection).
+   */
+  async executeWrite(
+    query: CompiledQuery,
+    opts: WriteOptions
+  ): Promise<WriteResult> {
+    const started = performance.now()
+    const pool = await this.connected()
+    const tx = new sql.Transaction(pool)
+    const ms = clampMs(opts.timeoutMs)
+    let committed = false
+    let timedOut = false
+    try {
+      await tx.begin()
+      await new sql.Request(tx).batch(
+        `SET LOCK_TIMEOUT ${Math.min(ms, 10_000)}`
+      )
+      const request = new sql.Request(tx)
+      query.values.forEach((value, i) =>
+        request.input(`p${i + 1}`, value as never)
+      )
+      const timer = setTimeout(() => {
+        timedOut = true
+        request.cancel()
+      }, ms)
+      let result: sql.IResult<unknown>
+      try {
+        result = await request.query(query.sql)
+      } finally {
+        clearTimeout(timer)
+      }
+      const affectedRows = (result.rowsAffected ?? []).reduce(
+        (sum, n) => sum + n,
+        0
+      )
+      if (affectedRows > opts.maxAffectedRows) {
+        throw tooManyRows(affectedRows, opts.maxAffectedRows)
+      }
+      if (opts.commit) {
+        await tx.commit()
+        committed = true
+      }
+      return {
+        affectedRows,
+        committed,
+        durationMs: Math.round(performance.now() - started),
+      }
+    } catch (error) {
+      throw translateMssqlError(error, timedOut)
+    } finally {
+      if (!committed) await tx.rollback().catch(() => undefined)
     }
   }
 

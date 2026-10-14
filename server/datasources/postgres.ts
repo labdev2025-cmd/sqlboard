@@ -20,6 +20,9 @@ import {
   type ExecOptions,
   type ExecutionHandle,
   type ExplainResult,
+  type WriteOptions,
+  type WriteResult,
+  tooManyRows,
 } from "./types"
 
 /** OID → (kind, native name) for the built-in types we map explicitly. */
@@ -323,6 +326,62 @@ export class PostgresAdapter implements DataSourceAdapter {
       throw error
     } finally {
       opts.signal?.removeEventListener("abort", onAbort)
+    }
+  }
+
+  /**
+   * Write action: one statement (extended protocol) inside its own
+   * read-write transaction with timeouts; rolled back on preview or when
+   * more rows than allowed were affected.
+   */
+  async executeWrite(
+    query: CompiledQuery,
+    opts: WriteOptions
+  ): Promise<WriteResult> {
+    const started = performance.now()
+    let client: PoolClient
+    try {
+      client = await this.pool.connect()
+    } catch (error) {
+      throw translatePgError(error)
+    }
+    let broken = false
+    let committed = false
+    try {
+      await client.query("BEGIN TRANSACTION READ WRITE")
+      const ms = clampMs(opts.timeoutMs)
+      // Integers we control, never user text.
+      await client.query(`SET LOCAL statement_timeout = ${ms}`)
+      await client.query(`SET LOCAL lock_timeout = ${Math.min(ms, 10_000)}`)
+      const result = await client.query({
+        text: query.sql,
+        values: query.values as unknown[],
+        queryMode: "extended",
+      } as never)
+      const affectedRows = (result as { rowCount: number | null }).rowCount ?? 0
+      if (affectedRows > opts.maxAffectedRows) {
+        throw tooManyRows(affectedRows, opts.maxAffectedRows)
+      }
+      if (opts.commit) {
+        await client.query("COMMIT")
+        committed = true
+      }
+      return {
+        affectedRows,
+        committed,
+        durationMs: Math.round(performance.now() - started),
+      }
+    } catch (error) {
+      throw translatePgError(error)
+    } finally {
+      if (!committed) {
+        try {
+          await client.query("ROLLBACK")
+        } catch {
+          broken = true
+        }
+      }
+      client.release(broken)
     }
   }
 

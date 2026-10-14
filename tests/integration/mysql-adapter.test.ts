@@ -118,6 +118,63 @@ describe.skipIf(!available)("execução segura no MySQL/MariaDB", () => {
     expect(Date.now() - started).toBeLessThan(5000)
   })
 
+  it("ações de escrita: prévia desfeita, limite de linhas e gravação", async () => {
+    const write = (
+      sql: string,
+      values: Record<string, string>,
+      commit: boolean,
+      max = 100
+    ) =>
+      owner.executeWrite(compileSql(sql, values, { dialect: "mysql" }), {
+        timeoutMs: 10_000,
+        maxAffectedRows: max,
+        commit,
+      })
+    const name = `Nome ${Date.now()}`
+    const count = async () =>
+      (
+        await run(ro, "select count(*) from clientes where nome = :n", {
+          n: name,
+        })
+      ).rows[0]![0]
+    const preview = await write(
+      "update clientes set nome = :n where uf = :uf",
+      { n: name, uf: "CE" },
+      false
+    )
+    expect(preview.affectedRows).toBeGreaterThan(1)
+    expect(Number(await count())).toBe(0)
+    await expect(
+      write(
+        "update clientes set nome = :n where uf = :uf",
+        { n: name, uf: "CE" },
+        true,
+        1
+      )
+    ).rejects.toThrow(/acima do limite/)
+    expect(Number(await count())).toBe(0)
+    const done = await write(
+      "update clientes set nome = :n where id = :id",
+      { n: name, id: "1" },
+      true
+    )
+    expect(done).toMatchObject({ affectedRows: 1, committed: true })
+    expect(Number(await count())).toBe(1)
+    // The read-only user cannot write even through executeWrite.
+    await expect(
+      ro.executeWrite(
+        compileSql(
+          "update clientes set nome = 'x' where id = 1",
+          {},
+          {
+            dialect: "mysql",
+          }
+        ),
+        { timeoutMs: 5000, maxAffectedRows: 1, commit: true }
+      )
+    ).rejects.toThrow()
+  })
+
   it("introspecta tabelas, chaves e índices", async () => {
     const schema = await ro.introspect()
     expect(schema.serverVersion).toMatch(/MariaDB|MySQL/)

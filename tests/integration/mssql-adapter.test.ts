@@ -87,6 +87,54 @@ describe.skipIf(!host)("execução segura no SQL Server", () => {
     await expect(promise).rejects.toMatchObject({ code: "cancelled" })
   })
 
+  it("ações de escrita: prévia desfeita, limite de linhas e gravação", async () => {
+    const write = (
+      sql: string,
+      values: Record<string, string>,
+      commit: boolean,
+      max = 1000
+    ) =>
+      owner.executeWrite(compileSql(sql, values, { dialect: "mssql" }), {
+        timeoutMs: 10_000,
+        maxAffectedRows: max,
+        commit,
+      })
+    const name = `Nome ${Date.now()}`
+    const count = async () =>
+      (
+        await run(
+          ro,
+          "select count(*) as n from dbo.clientes where nome = :n",
+          {
+            n: name,
+          }
+        )
+      ).rows[0]![0]
+    const preview = await write(
+      "update dbo.clientes set nome = :n where uf = :uf",
+      { n: name, uf: "SP" },
+      false
+    )
+    expect(preview.affectedRows).toBeGreaterThan(1)
+    expect(await count()).toBe(0)
+    await expect(
+      write(
+        "update dbo.clientes set nome = :n where uf = :uf",
+        { n: name, uf: "SP" },
+        true,
+        1
+      )
+    ).rejects.toThrow(/acima do limite/)
+    expect(await count()).toBe(0)
+    const done = await write(
+      "update dbo.clientes set nome = :n where id = :id",
+      { n: name, id: "1" },
+      true
+    )
+    expect(done).toMatchObject({ affectedRows: 1, committed: true })
+    expect(await count()).toBe(1)
+  })
+
   it("introspecta", async () => {
     const schema = await ro.introspect()
     expect(schema.serverVersion).toMatch(/^SQL Server/)

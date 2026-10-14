@@ -265,3 +265,41 @@ describe("comando único e somente leitura", () => {
     expect(() => assertSingleReadStatement("select $$;$$")).not.toThrow()
   })
 })
+
+describe("comando de escrita das ações", () => {
+  it("aceita só um INSERT/UPDATE explícito e exige WHERE no UPDATE", async () => {
+    const { assertSingleWriteStatement } = await import("@/lib/sql-params")
+    expect(() =>
+      assertSingleWriteStatement(
+        "insert into loja.solicitacoes (cliente_id, assunto) values (:c, :a)"
+      )
+    ).not.toThrow()
+    expect(() =>
+      assertSingleWriteStatement("update t set a = :a where id = :id")
+    ).not.toThrow()
+    expect(() => assertSingleWriteStatement("update t set a = 1")).toThrow(
+      /WHERE/
+    )
+    // A "where" inside a string or comment does not count.
+    expect(() =>
+      assertSingleWriteStatement("update t set a = 'where' -- where")
+    ).toThrow(/WHERE/)
+    expect(() =>
+      assertSingleWriteStatement("delete from t where id = 1")
+    ).toThrow(/INSERT ou UPDATE/)
+    expect(() => assertSingleWriteStatement("drop table t")).toThrow(
+      /INSERT ou UPDATE/
+    )
+    expect(() =>
+      assertSingleWriteStatement(
+        "update t set a = 1 where id = 1; drop table t"
+      )
+    ).toThrow(/único comando/)
+    expect(() =>
+      assertSingleWriteStatement(
+        "update t set a = 1 where 1=1 [[ and id = :id ]]"
+      )
+    ).toThrow(/opcionais/)
+    expect(() => assertSingleWriteStatement("")).toThrow(/vazio/)
+  })
+})

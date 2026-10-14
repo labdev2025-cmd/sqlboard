@@ -19,6 +19,9 @@ import {
   type ExecOptions,
   type ExecutionHandle,
   type ExplainResult,
+  type WriteOptions,
+  type WriteResult,
+  tooManyRows,
 } from "./types"
 
 /** mysql2 column type code → (kind, name). */
@@ -374,6 +377,85 @@ export class MysqlAdapter implements DataSourceAdapter {
       truncated,
       durationMs: Math.round(performance.now() - started),
       limit: maxRows,
+    }
+  }
+
+  /**
+   * Write action: one prepared statement in its own transaction, with lock
+   * wait limit and a client timer (KILL QUERY); rolled back on preview or
+   * when more rows than allowed were affected.
+   */
+  async executeWrite(
+    query: CompiledQuery,
+    opts: WriteOptions
+  ): Promise<WriteResult> {
+    const started = performance.now()
+    const connection = await this.connect()
+    const ms = clampMs(opts.timeoutMs)
+    let committed = false
+    let broken = false
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      void this.kill(connection.threadId).catch(() => undefined)
+    }, ms)
+    try {
+      // Integer we control, never user text.
+      await this.run(
+        connection,
+        `SET SESSION innodb_lock_wait_timeout = ${Math.max(1, Math.round(Math.min(ms, 10_000) / 1000))}`
+      )
+      await this.run(connection, "START TRANSACTION READ WRITE")
+      const header = await new Promise<{ affectedRows: number }>(
+        (resolve, reject) =>
+          connection.execute(
+            query.sql,
+            query.values as never,
+            (error, result) =>
+              error
+                ? reject(error)
+                : resolve(result as { affectedRows: number })
+          )
+      )
+      if (timedOut) {
+        throw new DataSourceError(
+          "O comando excedeu o tempo limite e foi interrompido.",
+          "timeout"
+        )
+      }
+      const affectedRows = header.affectedRows ?? 0
+      if (affectedRows > opts.maxAffectedRows) {
+        throw tooManyRows(affectedRows, opts.maxAffectedRows)
+      }
+      if (opts.commit) {
+        await this.run(connection, "COMMIT")
+        committed = true
+      }
+      return {
+        affectedRows,
+        committed,
+        durationMs: Math.round(performance.now() - started),
+      }
+    } catch (error) {
+      broken = (error as { fatal?: boolean })?.fatal === true
+      if (timedOut && !(error instanceof DataSourceError)) {
+        throw new DataSourceError(
+          "O comando excedeu o tempo limite e foi interrompido.",
+          "timeout"
+        )
+      }
+      throw translateMysqlError(error)
+    } finally {
+      clearTimeout(timer)
+      if (!committed && !broken) {
+        try {
+          await this.run(connection, "ROLLBACK")
+        } catch {
+          broken = true
+        }
+      }
+      if (broken) connection.destroy()
+      else connection.release()
     }
   }
 

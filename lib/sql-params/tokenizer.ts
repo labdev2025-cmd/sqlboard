@@ -369,3 +369,38 @@ export function assertSingleReadStatement(
     )
   }
 }
+
+const WRITE_KEYWORDS = new Set(["insert", "update"])
+
+/**
+ * Write actions (F6): a single explicit INSERT or UPDATE. UPDATE needs a
+ * WHERE clause (outside strings and comments) and optional clauses are not
+ * allowed, so the statement that runs is always the one that was reviewed.
+ */
+export function assertSingleWriteStatement(
+  sql: string,
+  dialect: SqlDialect = "postgres"
+) {
+  const count = countStatements(sql, dialect)
+  if (count === 0) throw new SqlParamError("O comando está vazio.")
+  if (count > 1) {
+    throw new SqlParamError(
+      "Envie um único comando por vez (sem ';' separando comandos)."
+    )
+  }
+  const keyword = leadingKeyword(sql, dialect)
+  if (!WRITE_KEYWORDS.has(keyword)) {
+    throw new SqlParamError(
+      `Ações de escrita aceitam só INSERT ou UPDATE (o comando começa com "${keyword.toUpperCase() || "?"}").`
+    )
+  }
+  const code = maskProtected(sql, dialect)
+  if (/\[\[|\]\]/.test(code)) {
+    throw new SqlParamError(
+      "Cláusulas opcionais [[ ]] não são permitidas em ações de escrita."
+    )
+  }
+  if (keyword === "update" && !/\bwhere\b/i.test(code)) {
+    throw new SqlParamError("UPDATE sem WHERE não é permitido.")
+  }
+}

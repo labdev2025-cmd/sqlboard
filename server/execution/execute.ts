@@ -37,6 +37,7 @@ export type ExecutionSource =
   | "schedule"
   | "mcp"
   | "options"
+  | "action"
 
 export type ExecuteRequest = {
   user: CurrentUser | null

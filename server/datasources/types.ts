@@ -28,6 +28,20 @@ export type ExecutionHandle = { cancel: () => Promise<void> }
 
 export type ExplainResult = { plan: string }
 
+export type WriteOptions = {
+  timeoutMs: number
+  /** More affected rows than this rolls the transaction back. */
+  maxAffectedRows: number
+  /** false = preview: run inside the transaction, then roll back. */
+  commit: boolean
+}
+
+export type WriteResult = {
+  affectedRows: number
+  committed: boolean
+  durationMs: number
+}
+
 /** Contract every database adapter implements (PROMPT.md §3.3). */
 export interface DataSourceAdapter {
   readonly dialect: SqlDialect
@@ -40,6 +54,8 @@ export interface DataSourceAdapter {
     opts: { timeoutMs: number }
   ): Promise<ExplainResult>
   cancel(handle: ExecutionHandle): Promise<void>
+  /** Write actions (F6): one INSERT/UPDATE in its own transaction. */
+  executeWrite(query: CompiledQuery, opts: WriteOptions): Promise<WriteResult>
   mapType(native: unknown): ColumnKind
   close(): Promise<void>
 }
@@ -53,4 +69,11 @@ export class DataSourceError extends Error {
   ) {
     super(message)
   }
+}
+
+export function tooManyRows(affected: number, max: number) {
+  return new DataSourceError(
+    `O comando afetaria ${affected} linha(s), acima do limite de ${max} desta ação. Nada foi gravado.`,
+    "forbidden"
+  )
 }

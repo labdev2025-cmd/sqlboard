@@ -142,4 +142,17 @@ WHERE p.status <> 'cancelado'
 GROUP BY 1, 2;
 COMMENT ON VIEW loja.vendas_mensais IS 'Receita mensal por categoria (exclui cancelados)';
 
+-- Tabela gravável pelas ações de escrita controlada (F6).
+CREATE TABLE loja.solicitacoes (
+  id serial PRIMARY KEY,
+  cliente_id int NOT NULL REFERENCES loja.clientes(id),
+  assunto text NOT NULL,
+  status text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'em_andamento', 'resolvida')),
+  criada_em timestamptz NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE loja.solicitacoes IS 'Solicitações de atendimento (fictícias)';
+INSERT INTO loja.solicitacoes (cliente_id, assunto, status)
+SELECT id, 'Dúvida sobre entrega do pedido', CASE WHEN id % 3 = 0 THEN 'resolvida' ELSE 'aberta' END
+FROM loja.clientes WHERE id <= 12;
+
 ANALYZE;
