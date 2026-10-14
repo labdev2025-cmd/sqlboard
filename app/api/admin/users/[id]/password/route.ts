@@ -11,5 +11,5 @@ export const POST = route<{ id: string }>(
     await resetUserPassword(params.id, password)
     return Response.json({ ok: true })
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

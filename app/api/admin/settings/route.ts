@@ -6,7 +6,7 @@ import { getSetting, setSetting } from "@/server/services/audit"
 export const GET = route(
   async () =>
     Response.json({ maskParams: await getSetting("audit.maskParams", false) }),
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )
 
 const schema = z.object({ maskParams: z.boolean() })
@@ -17,5 +17,5 @@ export const PUT = route(
     await setSetting("audit.maskParams", input.maskParams)
     return Response.json(input)
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

@@ -65,7 +65,7 @@ export function referencedTables(
   })
 }
 
-function describeTable(table: SchemaTable): string {
+export function describeTable(table: SchemaTable): string {
   const lines = [
     `### ${table.type === "view" ? "View" : "Tabela"} ${table.schema}.${table.name}${table.comment ? ` — ${table.comment}` : ""}`,
     "Colunas:",

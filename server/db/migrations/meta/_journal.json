@@ -15,6 +15,13 @@
       "when": 1791996879167,
       "tag": "0001_f6_agendamentos_acoes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791998619124,
+      "tag": "0002_f6_token_expiracao",
+      "breakpoints": true
     }
   ]
 }

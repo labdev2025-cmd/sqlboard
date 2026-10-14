@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "better-sqlite3",
     "pdfkit",
     "nodemailer",
+    "@modelcontextprotocol/sdk",
     "mysql2",
     "mssql",
     "exceljs",

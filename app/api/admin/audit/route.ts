@@ -14,5 +14,5 @@ export const GET = route(
       })
     )
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

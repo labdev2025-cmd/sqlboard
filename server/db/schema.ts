@@ -389,6 +389,8 @@ export const apiTokens = pgTable("api_tokens", {
   tokenHash: text("token_hash").notNull().unique(),
   prefix: text("prefix").notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  /** null = never expires (only if the user chose so). */
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

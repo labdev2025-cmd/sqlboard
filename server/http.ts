@@ -70,7 +70,14 @@ type Handler<C> = (ctx: {
   params: C
 }) => Promise<Response> | Response
 
-type Options = { roles?: Role[] }
+type Options = {
+  roles?: Role[]
+  /**
+   * Accept `Authorization: Bearer sqlb_…` API tokens (default true). Token
+   * management itself only works with the browser session.
+   */
+  allowToken?: boolean
+}
 
 /**
  * Wraps a Route Handler with authentication, role checks and uniform error
@@ -86,7 +93,9 @@ export function route<C = Record<string, never>>(
     context: { params: Promise<C> }
   ): Promise<Response> => {
     try {
-      const user = await getUserFromHeaders(request.headers)
+      const user = await getUserFromHeaders(request.headers, {
+        allowToken: options.allowToken ?? true,
+      })
       if (!user) throw unauthorized()
       if (options.roles && !options.roles.includes(user.role)) {
         throw forbidden()

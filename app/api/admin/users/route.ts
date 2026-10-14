@@ -6,6 +6,7 @@ import { createUserAccount, listUsers } from "@/server/services/users"
 
 export const GET = route(async () => Response.json(await listUsers()), {
   roles: ["admin"],
+  allowToken: false,
 })
 
 const createSchema = z.object({
@@ -21,5 +22,5 @@ export const POST = route(
     const created = await createUserAccount(input)
     return Response.json(created, { status: 201 })
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

@@ -16,5 +16,5 @@ export const PATCH = route<{ id: string }>(
     await updateUserAccount(params.id, changes, user.id)
     return Response.json({ ok: true })
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

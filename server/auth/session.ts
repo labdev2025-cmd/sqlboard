@@ -23,8 +23,16 @@ export type CurrentUser = {
  * re-read from the database so a role change or deactivation applies at once.
  */
 export async function getUserFromHeaders(
-  requestHeaders: Headers
+  requestHeaders: Headers,
+  options: { allowToken?: boolean } = {}
 ): Promise<CurrentUser | null> {
+  const authorization = requestHeaders.get("authorization") ?? ""
+  if (/^bearer\s/i.test(authorization)) {
+    // API tokens (MCP, scripts): never mixed with the cookie session.
+    if (!options.allowToken) return null
+    const { userFromToken } = await import("@/server/services/api-tokens")
+    return userFromToken(authorization.replace(/^bearer\s+/i, "").trim())
+  }
   const session = await auth.api.getSession({ headers: requestHeaders })
   if (!session) return null
   const [row] = await db
