@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   CopyIcon,
+  DownloadIcon,
   EllipsisVerticalIcon,
   EyeIcon,
   LayoutDashboardIcon,
@@ -75,6 +76,8 @@ import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api, errorMessage } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
+
+import { ImportAppDialog } from "./import-dialog"
 
 type AppItem = {
   id: string
@@ -335,10 +338,13 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
           </ToggleGroupItem>
         </ToggleGroup>
         {canCreate ? (
-          <Button className="sm:ml-auto" onClick={() => setCreating(true)}>
-            <PlusIcon data-icon="inline-start" />
-            Nova tela
-          </Button>
+          <div className="flex gap-2 sm:ml-auto">
+            <ImportAppDialog />
+            <Button onClick={() => setCreating(true)}>
+              <PlusIcon data-icon="inline-start" />
+              Nova tela
+            </Button>
+          </div>
         ) : null}
       </div>
       {tags.length ? (
@@ -452,6 +458,17 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
                               <DropdownMenuItem onClick={() => setEditing(app)}>
                                 <PencilIcon />
                                 Renomear e descrição
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                render={
+                                  <a
+                                    href={`/api/apps/${app.id}/file`}
+                                    download
+                                  />
+                                }
+                              >
+                                <DownloadIcon />
+                                Exportar JSON
                               </DropdownMenuItem>
                             </>
                           ) : null}
