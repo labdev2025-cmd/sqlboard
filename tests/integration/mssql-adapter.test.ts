@@ -135,11 +135,16 @@ describe.skipIf(!host)("execução segura no SQL Server", () => {
     expect(await count()).toBe(1)
   })
 
-  it("detecta quando a query encerra a transação de leitura", async () => {
+  it("nunca devolve sucesso quando a query encerra a transação", async () => {
     // Direct adapter call (the API refuses this text before it gets here).
-    await expect(run(owner, "select 1 as x commit tran")).rejects.toMatchObject(
-      { code: "forbidden" }
+    // SQL Server raises error 266 ("Transaction count after EXECUTE…");
+    // the adapter's @@TRANCOUNT check covers anything that gets past it.
+    await expect(run(owner, "select 1 as x commit tran")).rejects.toThrow(
+      /Transaction count|encerrou a transação/
     )
+    // The pool keeps working and nothing was persisted.
+    const after = await run(ro, "select count(*) as n from dbo.pedidos")
+    expect(after.rows[0]![0]).toBe(200)
   })
 
   it("introspecta", async () => {
