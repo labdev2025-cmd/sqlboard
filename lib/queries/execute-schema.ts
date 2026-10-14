@@ -19,5 +19,8 @@ export const executeInputSchema = z.object({
   executionId: z.uuid().optional(),
   maxRows: z.number().int().min(1).max(1_000_000).optional(),
   savedQueryId: z.uuid().optional(),
-  source: z.enum(["editor", "compare"]).default("editor"),
+  source: z.enum(["editor", "compare", "app"]).default("editor"),
+  /** Builder preview: audit the execution under this app (edit permission checked). */
+  appId: z.uuid().optional(),
+  queryName: z.string().max(64).optional(),
 })
