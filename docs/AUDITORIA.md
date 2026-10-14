@@ -27,7 +27,7 @@ Resumo de cada passada de execução do `PROMPT.md` (§1.3). A passada mais rece
 - Limite de tentativas de login era só em memória e por IP; passou a ficar no banco, por IP e por conta, com cabeçalho de IP configurável. Corrida no primeiro cadastro (dois administradores) eliminada.
 - Domínios permitidos de e-mail passaram a valer também a cada envio.
 - Riscos menores: `INTO OUTFILE`/`LOAD_FILE` no MySQL, locks e variáveis de sessão vazando pelo pool, UPDATE com WHERE só em subquery, link simbólico saindo da pasta do SQLite, origem da auditoria informada pelo cliente, parâmetros de ações sem máscara, tokens com poder de administrar conexões, segredos de exemplo aceitos em produção e listas de parâmetros sem limite. Todos corrigidos com testes.
-- Corrida real encontrada pelo CI: o `KILL QUERY` disparado ao truncar no MySQL podia interromper a query seguinte de outra pessoa no mesmo pool; cancelamentos agora são aguardados antes de devolver a conexão (também no PostgreSQL).
+- Corrida real encontrada pelo CI: o `KILL QUERY` disparado ao truncar no MySQL podia interromper a query seguinte de outra pessoa no mesmo pool; cancelamentos agora são aguardados antes de devolver a conexão (também no PostgreSQL). Também no CI: com o limite do servidor igual ao timer do cliente, o MySQL 8.4 encerrava um `SLEEP()` em silêncio e o tempo esgotado aparecia como sucesso; o limite do servidor virou reserva 1 s depois.
 
 **Funcional — encontrado e corrigido:** aviso de truncamento ausente nos componentes; erro de query no construtor sem o SQL; comparação "Melhorar com IA" ignorava a ordem das linhas mesmo com `ORDER BY`; `IN (:lista)` falhava no PostgreSQL (agora vira `= ANY`); compactação da grade virava passo de desfazer.
 
