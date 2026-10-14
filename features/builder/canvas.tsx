@@ -41,7 +41,8 @@ export function Canvas({
   actions: WidgetActions
   selectedId: string | null
   onSelect: (id: string | null) => void
-  onLayout: (layout: Layout) => void
+  /** `fromUser`: drag or resize (undoable); otherwise grid compaction. */
+  onLayout: (layout: Layout, fromUser: boolean) => void
   onDropWidget: (type: WidgetType, item: { x: number; y: number }) => void
   onKeyboard: (widget: Widget, event: React.KeyboardEvent) => void
 }) {
@@ -57,6 +58,15 @@ export function Canvas({
     [page.widgets]
   )
   const draggingInfo = dragState.type ? WIDGET_INFO[dragState.type] : null
+
+  // The grid reports the final layout right after the stop callbacks, so the
+  // flag is cleared on the next tick.
+  const interacting = React.useRef(false)
+  const endInteraction = () => {
+    setTimeout(() => {
+      interacting.current = false
+    })
+  }
 
   return (
     <div
@@ -96,7 +106,15 @@ export function Canvas({
             },
           }}
           compactor={verticalCompactor}
-          onLayoutChange={onLayout}
+          onDragStart={() => {
+            interacting.current = true
+          }}
+          onResizeStart={() => {
+            interacting.current = true
+          }}
+          onDragStop={endInteraction}
+          onResizeStop={endInteraction}
+          onLayoutChange={(next) => onLayout(next, interacting.current)}
           onDrop={(_layout, item) => {
             const type = dragState.type
             dragState.type = null

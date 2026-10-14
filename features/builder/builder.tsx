@@ -382,31 +382,34 @@ export function Builder({
     )
   }
 
-  const onLayout = (layout: Layout) => {
-    change((d) => ({
-      ...d,
-      pages: d.pages.map((p) =>
-        p.id !== pageId
-          ? p
-          : {
-              ...p,
-              widgets: p.widgets.map((w) => {
-                const item = layout.find((l) => l.i === w.id)
-                return item
-                  ? ({
-                      ...w,
-                      grid: clampGrid({
-                        x: item.x,
-                        y: item.y,
-                        w: item.w,
-                        h: item.h,
-                      }),
-                    } as Widget)
-                  : w
-              }),
-            }
-      ),
-    }))
+  const onLayout = (layout: Layout, fromUser: boolean) => {
+    change(
+      (d) => ({
+        ...d,
+        pages: d.pages.map((p) =>
+          p.id !== pageId
+            ? p
+            : {
+                ...p,
+                widgets: p.widgets.map((w) => {
+                  const item = layout.find((l) => l.i === w.id)
+                  return item
+                    ? ({
+                        ...w,
+                        grid: clampGrid({
+                          x: item.x,
+                          y: item.y,
+                          w: item.w,
+                          h: item.h,
+                        }),
+                      } as Widget)
+                    : w
+                }),
+              }
+        ),
+      }),
+      { history: fromUser }
+    )
   }
 
   const onKeyboard = (widget: Widget, event: React.KeyboardEvent) => {
