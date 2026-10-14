@@ -276,4 +276,89 @@ test.describe("interatividade, versões e compartilhamento", () => {
     await expect(page.getByText("Clientes por UF").first()).toBeVisible()
     await expect(page.getByText("Título só no rascunho")).toHaveCount(0)
   })
+
+  test("clique numa barra do gráfico alimenta o parâmetro de outra query", async ({
+    page,
+  }) => {
+    const created = await page.request.post("/api/apps", {
+      data: { name: `Barras clicáveis ${Date.now()}` },
+    })
+    expect(created.status()).toBe(201)
+    const id = (await created.json()).id as string
+    const document = {
+      schemaVersion: 2,
+      app: { id, name: "Barras clicáveis" },
+      queries: [
+        {
+          id: "q1",
+          name: "ufs",
+          connectionId: demoId,
+          sql: "select uf, count(*) as total from loja.clientes group by uf order by uf",
+          params: [],
+          runMode: "auto",
+        },
+        {
+          id: "q2",
+          name: "clientes_uf",
+          connectionId: demoId,
+          sql: "select nome, uf from loja.clientes where uf = :uf order by nome limit 10",
+          params: [{ name: "uf", type: "text", required: true }],
+          paramBindings: { uf: "{{barras.selectedRow.uf}}" },
+          runMode: "auto",
+        },
+      ],
+      pages: [
+        {
+          id: "p1",
+          name: "Estados",
+          widgets: [
+            {
+              id: "barras",
+              type: "bar-chart",
+              grid: { x: 0, y: 0, w: 6, h: 8 },
+              props: { title: "Clientes por UF", x: "uf", y: ["total"] },
+              bindings: { data: "{{ufs.data}}" },
+            },
+            table(
+              "detalhe",
+              6,
+              "{{clientes_uf.data}}",
+              "Clientes da UF {{barras.selectedRow.uf}}"
+            ),
+          ],
+        },
+      ],
+    }
+    expect(
+      (
+        await page.request.put(`/api/apps/${id}/draft`, {
+          data: { document },
+        })
+      ).status()
+    ).toBe(200)
+
+    await page.goto(`/apps/${id}?mode=draft`)
+    const chart = page.getByRole("region", { name: "Clientes por UF" })
+    const bars = chart.locator(".recharts-bar-rectangle")
+    // One bar per state, in the query order (BA, CE, MG, PE, PR, RJ, RS, SP).
+    await expect(bars).toHaveCount(8)
+    await expect(page.getByText("Preencha: uf.")).toBeVisible()
+
+    await bars.nth(1).click()
+    const ce = page.getByRole("table", { name: "Clientes da UF CE" })
+    await expect(ce).toBeVisible()
+    await expect(ce.getByRole("row")).toHaveCount(11)
+    for (const row of await ce.locator("tbody tr").all())
+      await expect(row.getByRole("cell").nth(1)).toHaveText("CE")
+
+    await bars.nth(7).click()
+    const sp = page.getByRole("table", { name: "Clientes da UF SP" })
+    await expect(sp).toBeVisible()
+    await expect(
+      sp.locator("tbody tr").first().getByRole("cell").nth(1)
+    ).toHaveText("SP")
+    await expect(
+      page.getByRole("table", { name: "Clientes da UF CE" })
+    ).toHaveCount(0)
+  })
 })

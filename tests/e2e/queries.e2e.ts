@@ -85,6 +85,21 @@ test.describe("editor SQL", () => {
     expect(promptText).toContain("pedidos_data_idx")
     expect(promptText).not.toMatch(/sqlboard_demo_ro|demo_ro_local|localhost/)
     expect(promptText).not.toContain("entregue")
+    // Never the connection name nor its credentials.
+    expect(promptText).not.toContain("Demo")
+    expect(promptText).not.toContain("## Plano de execução")
+
+    // Optional EXPLAIN plan (fetched on demand) joins the prompt.
+    await ai.getByRole("checkbox", { name: /Plano de execução/ }).click()
+    await expect(
+      ai.getByRole("checkbox", { name: /Plano de execução/ })
+    ).toBeChecked()
+    const promptBox = ai.getByRole("textbox", { name: "Prompt" })
+    await expect(promptBox).toHaveValue(
+      /## Plano de execução \(EXPLAIN, sem ANALYZE\)\n```\n[\s\S]*Limit/
+    )
+    const withPlan = await promptBox.inputValue()
+    expect(withPlan).not.toContain("Demo")
     await ai.getByRole("button", { name: "Copiar" }).click()
     await expect(page.getByText("Prompt copiado").first()).toBeVisible()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
@@ -117,9 +132,20 @@ test.describe("editor SQL", () => {
     await expect(
       page.getByText("Query aplicada no editor").first()
     ).toBeVisible()
-    await expect(page.locator(".cm-content")).toContainText(
-      "from loja.pedidos p"
-    )
+    const editor = page.locator(".cm-content")
+    await expect(editor).toContainText("from loja.pedidos p")
+
+    // Undo from the toast, then the editor history (Ctrl+Z / Ctrl+Shift+Z).
+    await page.getByRole("button", { name: "Desfazer" }).click()
+    await expect(editor).toContainText("from loja.pedidos where")
+    await expect(editor).not.toContainText("from loja.pedidos p")
+    await editor.click()
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(editor).toContainText("from loja.pedidos p")
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(editor).toContainText("from loja.pedidos where")
+    await page.keyboard.press("ControlOrMeta+Shift+z")
+    await expect(editor).toContainText("from loja.pedidos p")
 
     await page.getByRole("button", { name: "Salvar" }).click()
     await page
@@ -137,6 +163,71 @@ test.describe("editor SQL", () => {
     await expect(page.locator(".cm-content")).toContainText(
       "from loja.pedidos where"
     )
+  })
+
+  test("tabela de resultado: ordena, pagina, busca e exporta XLSX", async ({
+    page,
+  }) => {
+    await page.goto("/queries/new")
+    await setSql(page, "select id, status, canal from loja.pedidos order by id")
+    await page.getByRole("button", { name: /Executar/ }).click()
+    await expect(page.getByText("3.000 linhas").first()).toBeVisible()
+    const table = page.getByRole("table", { name: "Resultado da query" })
+    const firstRow = table.locator("tbody tr").first()
+    const statusHeader = table.getByRole("columnheader").nth(1)
+    await expect(firstRow.getByRole("cell").first()).toHaveText("1")
+    await expect(page.getByText("1 / 120")).toBeVisible()
+    await expect(statusHeader).not.toHaveAttribute("aria-sort", /.+/)
+
+    // Sorting by a text column: ascending, then descending.
+    await table.getByRole("button", { name: "status", exact: true }).click()
+    await expect(statusHeader).toHaveAttribute("aria-sort", "ascending")
+    await expect(firstRow.getByRole("cell").nth(1)).toHaveText("cancelado")
+    await table.getByRole("button", { name: "status", exact: true }).click()
+    await expect(statusHeader).toHaveAttribute("aria-sort", "descending")
+    await expect(firstRow.getByRole("cell").nth(1)).toHaveText("pago")
+
+    // Next page shows other rows.
+    const pageOneIds = await table
+      .locator("tbody tr td:first-child")
+      .allInnerTexts()
+    expect(pageOneIds).toHaveLength(25)
+    await page.getByRole("button", { name: "Próxima página" }).click()
+    await expect(page.getByText("2 / 120")).toBeVisible()
+    await expect(firstRow.getByRole("cell").nth(1)).toHaveText("pago")
+    const pageTwoIds = await table
+      .locator("tbody tr td:first-child")
+      .allInnerTexts()
+    expect(pageTwoIds.filter((id) => pageOneIds.includes(id))).toEqual([])
+    await expect(
+      page.getByRole("button", { name: "Página anterior" })
+    ).toBeEnabled()
+
+    // Search filters the rows and goes back to the first page.
+    await page
+      .getByRole("textbox", { name: "Buscar em Resultado da query" })
+      .fill("cancelado")
+    await expect(page.getByText("309 linhas (de 3.000)")).toBeVisible()
+    await expect(page.getByText("1 / 13")).toBeVisible()
+    const statuses = await table
+      .locator("tbody tr td:nth-child(2)")
+      .allInnerTexts()
+    expect(new Set(statuses)).toEqual(new Set(["cancelado"]))
+    await page
+      .getByRole("textbox", { name: "Buscar em Resultado da query" })
+      .fill("nada-com-isso")
+    await expect(
+      table.getByText("Nenhuma linha corresponde à busca.")
+    ).toBeVisible()
+
+    // Excel export of the whole result.
+    const download = page.waitForEvent("download")
+    await page.getByRole("button", { name: "XLSX", exact: true }).click()
+    const file = await download
+    expect(file.suggestedFilename()).toMatch(/\.xlsx$/)
+    const bytes = await readFile(await file.path())
+    // XLSX is a ZIP container.
+    expect(bytes.subarray(0, 2).toString("latin1")).toBe("PK")
   })
 
   test("biblioteca com busca, tag e celular", async ({ page }) => {

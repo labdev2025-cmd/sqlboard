@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises"
+
 import { expect, test } from "@playwright/test"
 
 import { expectAccessible, grantDemo, storageFor } from "./support/helpers"
@@ -239,5 +241,223 @@ test.describe("todos os componentes do MVP", () => {
       page.getByRole("region", { name: "Muitas linhas" })
     ).toContainText("o resultado tem mais")
     await expectAccessible(page, [".recharts-wrapper"])
+  })
+
+  test("KPI compara com o anterior; entradas e botões mudam as queries dependentes", async ({
+    page,
+    browser,
+  }, info) => {
+    const demoId = await grantDemo(browser, info.project.use.baseURL!, "editor")
+    const created = await page.request.post("/api/apps", {
+      data: { name: `Entradas e botões ${Date.now()}` },
+    })
+    const appId = (await created.json()).id
+    const kpi = (id: string, title: string, query: string, x: number) => ({
+      id,
+      type: "kpi",
+      grid: { x, y: 0, w: 3, h: 3 },
+      props: { title, value: "total", compare: "anterior", format: "number" },
+      bindings: { data: `{{${query}.data}}` },
+    })
+    const widgets: W[] = [
+      kpi("kpi_alta", "Receita", "alta", 0),
+      kpi("kpi_queda", "Devoluções", "queda", 3),
+      {
+        id: "minimo",
+        type: "number-input",
+        grid: { x: 0, y: 3, w: 3, h: 3 },
+        props: { label: "Mínimo", param: "minimo" },
+      },
+      {
+        id: "kpi_acima",
+        type: "kpi",
+        grid: { x: 3, y: 3, w: 3, h: 3 },
+        props: { title: "Acima do mínimo", value: "total", format: "number" },
+        bindings: { data: "{{acima.data}}" },
+      },
+      {
+        id: "ativos",
+        type: "switch",
+        grid: { x: 6, y: 3, w: 3, h: 3 },
+        props: { label: "Só ativos", param: "ativos" },
+      },
+      {
+        id: "estado_texto",
+        type: "text",
+        grid: { x: 9, y: 3, w: 3, h: 3 },
+        props: { content: "Filtro: {{estado.data[0].estado}}" },
+      },
+      {
+        id: "periodo",
+        type: "date-range",
+        grid: { x: 0, y: 6, w: 6, h: 3 },
+        props: { label: "Período", paramStart: "inicio", paramEnd: "fim" },
+      },
+      {
+        id: "kpi_dias",
+        type: "kpi",
+        grid: { x: 6, y: 6, w: 3, h: 3 },
+        props: { title: "Dias no período", value: "dias", format: "number" },
+        bindings: { data: "{{dias.data}}" },
+      },
+      {
+        id: "instante_texto",
+        type: "text",
+        grid: { x: 0, y: 9, w: 6, h: 2 },
+        props: { content: "Instante: {{agora.data[0].instante}}" },
+      },
+      {
+        id: "atualizar",
+        type: "button",
+        grid: { x: 6, y: 9, w: 3, h: 2 },
+        props: { label: "Atualizar instante", action: "run", query: "agora" },
+      },
+      {
+        id: "baixar",
+        type: "button",
+        grid: { x: 9, y: 9, w: 3, h: 2 },
+        props: {
+          label: "Baixar Excel",
+          action: "export",
+          query: "acima",
+          format: "xlsx",
+        },
+      },
+    ]
+    const document = {
+      schemaVersion: 2,
+      app: { id: appId, name: "Entradas e botões" },
+      queries: [
+        {
+          id: "q1",
+          name: "alta",
+          connectionId: demoId,
+          sql: "select 120 as total, 100 as anterior",
+        },
+        {
+          id: "q2",
+          name: "queda",
+          connectionId: demoId,
+          sql: "select 75 as total, 100 as anterior",
+        },
+        {
+          id: "q3",
+          name: "acima",
+          connectionId: demoId,
+          sql: "select count(*) as total from generate_series(1, 100) as n where n > :minimo",
+          params: [
+            { name: "minimo", type: "number", required: true, default: "90" },
+          ],
+        },
+        {
+          id: "q4",
+          name: "estado",
+          connectionId: demoId,
+          sql: "select case when cast(:ativos as boolean) then 'só ativos' else 'todos' end as estado",
+          params: [
+            {
+              name: "ativos",
+              type: "boolean",
+              required: true,
+              default: "false",
+            },
+          ],
+        },
+        {
+          id: "q5",
+          name: "dias",
+          connectionId: demoId,
+          sql: "select cast(:fim as date) - cast(:inicio as date) as dias",
+          params: [
+            {
+              name: "inicio",
+              type: "date",
+              required: true,
+              default: "2026-01-01",
+            },
+            {
+              name: "fim",
+              type: "date",
+              required: true,
+              default: "2026-01-10",
+            },
+          ],
+        },
+        {
+          id: "q6",
+          name: "agora",
+          connectionId: demoId,
+          sql: "select to_char(clock_timestamp(), 'HH24:MI:SS.US') as instante",
+        },
+      ],
+      pages: [{ id: "p1", name: "Entradas", widgets }],
+    }
+    expect(
+      (
+        await page.request.put(`/api/apps/${appId}/draft`, {
+          data: { document },
+        })
+      ).status()
+    ).toBe(200)
+
+    await page.goto(`/apps/${appId}?mode=draft`)
+
+    // KPI with comparison: the change and its direction (also for screen readers).
+    const receita = page.getByRole("region", { name: "Receita" })
+    await expect(receita).toContainText("120")
+    await expect(receita).toContainText(/20%\s*de aumento/)
+    const devolucoes = page.getByRole("region", { name: "Devoluções" })
+    await expect(devolucoes).toContainText("75")
+    await expect(devolucoes).toContainText(/-25%\s*de queda/)
+
+    // Number input.
+    const acima = page.getByRole("region", { name: "Acima do mínimo" })
+    await expect(acima).toContainText("10")
+    await page.getByRole("textbox", { name: "Mínimo" }).fill("95")
+    await expect(acima.getByText("5", { exact: true })).toBeVisible()
+    await expect(page).toHaveURL(/p\.minimo=95/)
+
+    // Switch.
+    await expect(page.getByText("Filtro: todos")).toBeVisible()
+    await page.getByRole("switch", { name: "Só ativos" }).click()
+    await expect(page.getByRole("switch", { name: "Só ativos" })).toBeChecked()
+    await expect(page.getByText("Filtro: só ativos")).toBeVisible()
+
+    // Date range: pick a new end date in the calendar.
+    const dias = page.getByRole("region", { name: "Dias no período" })
+    await expect(dias.getByText("9", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: /Período — fim/ }).click()
+    const calendar = page.getByRole("dialog")
+    await calendar
+      .getByRole("button", { name: /20 de janeiro de 2026/ })
+      .click()
+    await expect(calendar).toBeHidden()
+    await expect(dias.getByText("19", { exact: true })).toBeVisible()
+    await expect(page).toHaveURL(/p\.fim=2026-01-20/)
+
+    // Button "run": re-executes the query even with the same parameters.
+    const instante = page.getByText(/^Instante: \d{2}:\d{2}/)
+    await expect(instante).toBeVisible()
+    const before = await instante.innerText()
+    await page.getByRole("button", { name: "Atualizar instante" }).click()
+    await expect.poll(() => instante.innerText()).not.toBe(before)
+
+    // Button "export": downloads the query with the current parameters.
+    const download = page.waitForEvent("download")
+    await page.getByRole("button", { name: "Baixar Excel" }).click()
+    const file = await download
+    expect(file.suggestedFilename()).toMatch(/\.xlsx$/)
+    const bytes = await readFile(await file.path())
+    expect(bytes.subarray(0, 2).toString("latin1")).toBe("PK")
+
+    // The widget "Exportar" menu offers Excel too.
+    const fromMenu = page.waitForEvent("download")
+    await page
+      .getByRole("button", { name: "Exportar dados de Acima do mínimo" })
+      .click()
+    await page.getByRole("menuitem", { name: "Exportar Excel (XLSX)" }).click()
+    expect((await fromMenu).suggestedFilename()).toMatch(
+      /^entradas-e-botoes-.*acima.*\.xlsx$/
+    )
   })
 })
