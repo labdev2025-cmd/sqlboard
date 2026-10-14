@@ -19,13 +19,13 @@ Plataforma web *SQL-first* para equipes montarem ferramentas internas e painéis
 | `LEARNING.md` + `docs/learning/` | Aprendizados registrados durante o desenvolvimento |
 | `docs/guides/` | Guias de UI (shadcn/ui), responsividade, contexto e commits |
 
-Para avançar uma fase, numa sessão do Claude Code (local ou na nuvem) com este repositório:
+Para construir ou revisar o projeto, numa sessão do Claude Code (local ou na nuvem) com este repositório:
 
 ```text
 execute o PROMPT.md
 ```
 
-Cada sessão entrega uma fase em uma branch própria; revise e mescle o pull request antes de pedir a próxima.
+Cada execução constrói tudo o que falta no roadmap e depois faz uma passada de auditoria (revisa, corrige, refatora), commitando direto na `main`. Repetir o pedido em novas sessões gera novas passadas de auditoria; o resumo de cada uma fica em `docs/AUDITORIA.md`.
 
 ## Segurança
 

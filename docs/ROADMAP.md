@@ -1,7 +1,7 @@
 # Roadmap do sqlboard
 
-Fonte única das fases, critérios de aceite e status. Protocolo de execução: `PROMPT.md` §1.
-Status possíveis: `pendente`, `em andamento`, `concluída`. Ao concluir, registre data, entregas e pendências reais.
+Fonte única das fases, critérios de aceite e status. Protocolo de execução: `PROMPT.md` §1 (todas as fases na mesma sessão, depois auditoria).
+Status possíveis: `pendente`, `em andamento`, `concluída`. Marque cada entrega com `[x]` só quando implementada **e** testada; a auditoria desmarca o que não se sustentar. Ao concluir uma fase, registre data e pendências reais.
 
 ---
 
@@ -10,13 +10,13 @@ Status possíveis: `pendente`, `em andamento`, `concluída`. Ao concluir, regist
 **Status:** pendente
 
 Entregas:
-- Projeto Next.js (App Router, TypeScript estrito, pnpm) com shadcn/ui inicializado (`init -t next`), tema claro/escuro, fonte e tokens definidos.
-- Qualidade: ESLint, Prettier (ou o formatador que a CLI do Next/shadcn trouxer), `typecheck`, Vitest, Playwright + axe; scripts no `package.json`.
-- CI no GitHub Actions: install, lint, typecheck, testes com serviço Postgres, build, e2e.
-- Banco de metadados PostgreSQL com Drizzle e migrações; `compose.yaml` para dev; `scripts/dev-setup.sh` idempotente; `.env.example`.
-- Better Auth (e-mail + senha): primeiro usuário vira admin; depois, cadastro só por admin/convite. Papéis `admin`, `editor`, `viewer` verificados no servidor.
-- Layout da aplicação (Sidebar do shadcn, responsiva) com áreas vazias: Conexões, Queries, Apps, Administração; página de login; estados vazios.
-- `AGENTS.md` com comandos reais verificados; README com "como rodar".
+- [ ] Projeto Next.js (App Router, TypeScript estrito, pnpm) com shadcn/ui inicializado (`init -t next`), tema claro/escuro, fonte e tokens definidos.
+- [ ] Qualidade: ESLint, Prettier (ou o formatador que a CLI do Next/shadcn trouxer), `typecheck`, Vitest, Playwright + axe; scripts no `package.json`.
+- [ ] CI no GitHub Actions: install, lint, typecheck, testes com serviço Postgres, build, e2e.
+- [ ] Banco de metadados PostgreSQL com Drizzle e migrações; `compose.yaml` para dev; `scripts/dev-setup.sh` idempotente; `.env.example`.
+- [ ] Better Auth (e-mail + senha): primeiro usuário vira admin; depois, cadastro só por admin/convite. Papéis `admin`, `editor`, `viewer` verificados no servidor.
+- [ ] Layout da aplicação (Sidebar do shadcn, responsiva) com áreas vazias: Conexões, Queries, Apps, Administração; página de login; estados vazios.
+- [ ] `AGENTS.md` com comandos reais verificados; README com "como rodar".
 
 Critérios de aceite:
 - `pnpm lint && pnpm typecheck && pnpm test && pnpm build` passam; CI verde no push.
@@ -30,13 +30,13 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- CRUD de conexões PostgreSQL (admin): host, porta, banco, usuário, senha, SSL, timeout e limite de linhas padrão.
-- Senha criptografada com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`), nunca devolvida ao navegador.
-- "Testar conexão" com mensagem de erro traduzida.
-- Introspecção de schema (schemas, tabelas, colunas, tipos, comentários) com cache por conexão e botão de atualizar; navegador de schema.
-- Permissão por conexão (quais usuários/editores podem usar).
-- Banco de demonstração `sqlboard_demo` com dados fictícios e usuário somente leitura; conexão de demo criada pelo seed em dev.
-- Aviso na tela de cadastro recomendando usuário de banco só com SELECT.
+- [ ] CRUD de conexões PostgreSQL (admin): host, porta, banco, usuário, senha, SSL, timeout e limite de linhas padrão.
+- [ ] Senha criptografada com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`), nunca devolvida ao navegador.
+- [ ] "Testar conexão" com mensagem de erro traduzida.
+- [ ] Introspecção de schema (schemas, tabelas, colunas, tipos, comentários) com cache por conexão e botão de atualizar; navegador de schema.
+- [ ] Permissão por conexão (quais usuários/editores podem usar).
+- [ ] Banco de demonstração `sqlboard_demo` com dados fictícios e usuário somente leitura; conexão de demo criada pelo seed em dev.
+- [ ] Aviso na tela de cadastro recomendando usuário de banco só com SELECT.
 
 Critérios de aceite:
 - Testes: criptografia (ida e volta, IV único, adulteração detectada), permissões no servidor, introspecção contra Postgres real.
@@ -49,12 +49,12 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- Queries salvas (nome, descrição, conexão, SQL, parâmetros).
-- Editor CodeMirror 6 com dialeto PostgreSQL, autocomplete do schema introspectado, atalho para executar, tema claro/escuro.
-- Tokenizador/compilador de parâmetros `:nome` e `{{nome}}` (`src/lib/sql-params`), detecção automática e formulário de parâmetros tipados.
-- Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
-- Resultado em Data Table (tipos formatados, ordenação, paginação, busca, colunas redimensionáveis) + tempo de execução e quantidade de linhas.
-- Auditoria das execuções e tela de auditoria para admin.
+- [ ] Queries salvas (nome, descrição, conexão, SQL, parâmetros).
+- [ ] Editor CodeMirror 6 com dialeto PostgreSQL, autocomplete do schema introspectado, atalho para executar, tema claro/escuro.
+- [ ] Tokenizador/compilador de parâmetros `:nome` e `{{nome}}` (`src/lib/sql-params`), detecção automática e formulário de parâmetros tipados.
+- [ ] Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
+- [ ] Resultado em Data Table (tipos formatados, ordenação, paginação, busca, colunas redimensionáveis) + tempo de execução e quantidade de linhas.
+- [ ] Auditoria das execuções e tela de auditoria para admin.
 
 Critérios de aceite:
 - Testes do tokenizador cobrindo strings, identificadores, comentários, dollar-quoting, `::`, `:=`, parâmetro repetido.
@@ -68,12 +68,12 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- Schema Zod do documento de tela (`schemaVersion` 1) e registro de widgets (`PROMPT.md` §5).
-- Editor: paleta, grade de 12 colunas (react-grid-layout v2) com arrastar/redimensionar, painel de propriedades gerado do schema, desfazer/refazer, autosave de rascunho, alternativa sem arrastar (teclado e campos numéricos).
-- Widgets do MVP (`PROMPT.md` §5.1) ligados a uma query da tela e aos seus parâmetros.
-- Sugestão de widget pelo tipo das colunas e botão "Gerar tela automática".
-- Modo visualização responsivo (empilha no celular), parâmetros no topo, URL com parâmetros.
-- Lista de apps, criar, duplicar, excluir (com confirmação).
+- [ ] Schema Zod do documento de tela (`schemaVersion` 1) e registro de widgets (`PROMPT.md` §5).
+- [ ] Editor: paleta, grade de 12 colunas (react-grid-layout v2) com arrastar/redimensionar, painel de propriedades gerado do schema, desfazer/refazer, autosave de rascunho, alternativa sem arrastar (teclado e campos numéricos).
+- [ ] Widgets do MVP (`PROMPT.md` §5.1) ligados a uma query da tela e aos seus parâmetros.
+- [ ] Sugestão de widget pelo tipo das colunas e botão "Gerar tela automática".
+- [ ] Modo visualização responsivo (empilha no celular), parâmetros no topo, URL com parâmetros.
+- [ ] Lista de apps, criar, duplicar, excluir (com confirmação).
 
 Critérios de aceite:
 - Testes: validação do schema, sugestão por tipo de coluna, geração automática.
@@ -87,14 +87,14 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- Várias queries e várias páginas por app; `runMode` automático/manual.
-- Bindings `{{query.data}}`, `{{widget.value}}` em propriedades (avaliador seguro e restrito, sem `eval`); clique numa linha/barra alimenta parâmetro de outra query.
-- Cláusulas opcionais `[[ ... ]]`.
-- Parâmetro `list`/`multi` com opções vindas de outra query.
-- Export CSV e XLSX do resultado (respeitando permissões e limites).
-- Cache de resultado com TTL por query.
-- Versões: publicar rascunho, histórico, restaurar; compartilhar app com usuários (ver/editar).
-- Migração de `schemaVersion` se o formato mudar (com teste).
+- [ ] Várias queries e várias páginas por app; `runMode` automático/manual.
+- [ ] Bindings `{{query.data}}`, `{{widget.value}}` em propriedades (avaliador seguro e restrito, sem `eval`); clique numa linha/barra alimenta parâmetro de outra query.
+- [ ] Cláusulas opcionais `[[ ... ]]`.
+- [ ] Parâmetro `list`/`multi` com opções vindas de outra query.
+- [ ] Export CSV e XLSX do resultado (respeitando permissões e limites).
+- [ ] Cache de resultado com TTL por query.
+- [ ] Versões: publicar rascunho, histórico, restaurar; compartilhar app com usuários (ver/editar).
+- [ ] Migração de `schemaVersion` se o formato mudar (com teste).
 
 Critérios de aceite:
 - Testes do avaliador de bindings (inclusive tentativas de execução de código) e das cláusulas opcionais.
@@ -107,8 +107,8 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- Adapters MySQL/MariaDB (`mysql2`), SQLite (`better-sqlite3`), SQL Server (`mssql`); Oracle (`oracledb`) se o ambiente permitir testar.
-- Dialeto correto no editor e no compilador de parâmetros; mapeamento de tipos; somente leitura e timeout equivalentes em cada banco (documentar limitações de cada um).
+- [ ] Adapters MySQL/MariaDB (`mysql2`), SQLite (`better-sqlite3`), SQL Server (`mssql`); Oracle (`oracledb`) se o ambiente permitir testar.
+- [ ] Dialeto correto no editor e no compilador de parâmetros; mapeamento de tipos; somente leitura e timeout equivalentes em cada banco (documentar limitações de cada um).
 
 Critérios de aceite:
 - Testes de integração por banco (containers via Docker quando disponível); tabela de capacidades por banco no README.
@@ -119,9 +119,9 @@ Critérios de aceite:
 
 **Status:** pendente
 
-Entregas candidatas (priorizar com o usuário antes de começar):
-- Agendamento de queries/telas com envio por e-mail (CSV/PDF).
-- Ações com escrita controlada: formulários com INSERT/UPDATE explícitos, conexão separada de escrita, prévia, confirmação, transação e auditoria.
-- Import/export de apps em JSON (e versionamento em git).
-- Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.
-- Dockerfile de produção e guia de deploy.
+Entregas (implemente na ordem; cada uma com as mesmas exigências de segurança e testes das fases anteriores):
+- [ ] Agendamento de queries/telas com envio por e-mail (CSV/PDF).
+- [ ] Ações com escrita controlada: formulários com INSERT/UPDATE explícitos, conexão separada de escrita, prévia, confirmação, transação e auditoria.
+- [ ] Import/export de apps em JSON (e versionamento em git).
+- [ ] Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.
+- [ ] Dockerfile de produção e guia de deploy.

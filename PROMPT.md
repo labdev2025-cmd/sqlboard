@@ -1,6 +1,6 @@
 # PROMPT.md — construção do sqlboard
 
-> **Para o agente.** Este é o prompt de construção do projeto. Quando o usuário disser "execute o PROMPT.md" (ou equivalente), leia este arquivo inteiro e siga o **Protocolo de sessão** (§1). Cada sessão entrega **uma fase** do `docs/ROADMAP.md`, validada e commitada. O usuário repete o mesmo pedido em sessões seguintes até o roadmap terminar.
+> **Para o agente.** Este é o prompt de construção do projeto. Quando o usuário disser "execute o PROMPT.md" (ou equivalente), leia este arquivo inteiro e siga o **Protocolo de sessão** (§1). O objetivo de **cada** execução é deixar o projeto **inteiro** pronto: construir tudo o que falta no `docs/ROADMAP.md`, na mesma sessão, sem parar entre fases. O usuário vai repetir este mesmo pedido muitas vezes; cada nova execução é uma **passada** que audita o que já existe contra este prompt, corrige, refatora e completa o que faltar. O prompt é idempotente: rodá-lo de novo nunca deve desfazer trabalho correto.
 
 Revisão: 2026-10-14. Pesquisa de mercado, bibliotecas e versões feita nessa data. Versões mudam: confirme no registro do npm e na documentação instalada antes de usar qualquer API (§7).
 
@@ -41,18 +41,38 @@ Design: **100% shadcn/ui**, conforme `docs/guides/UI.md`. Responsivo e acessíve
 
 ## 1. Protocolo de sessão [OBRIGATÓRIO]
 
-1. **Leia o contexto:** `AGENTS.md`, `LEARNING.md` (e só os tópicos relevantes de `docs/learning/`), `docs/ROADMAP.md` e este arquivo.
-2. **Escolha a fase:** a primeira em `docs/ROADMAP.md` com status diferente de `concluída`. Se estiver `em andamento`, continue de onde parou (o próprio roadmap e o `git log` dizem o que falta). Não pule fases; não comece a próxima na mesma sessão, a menos que o usuário peça.
-3. **Planeje antes de codar:** liste entregas, arquivos, riscos e como vai validar. Se a fase for grande demais para uma sessão, divida em subfases no próprio roadmap e entregue a primeira por inteiro (melhor uma subfase pronta do que uma fase pela metade).
-4. **Implemente** seguindo §3–§6 e os guias (§8).
-5. **Valide de verdade** (§9): lint, typecheck, testes, build e, em fases com interface, testes no navegador. Nunca declare que algo passou sem executar.
-6. **Atualize o projeto:**
-   - `docs/ROADMAP.md`: status da fase, o que foi entregue, pendências reais.
-   - `AGENTS.md`: comandos reais e verificados (ex.: `pnpm dev`, `pnpm test`), com o diretório e pré-requisitos.
-   - `LEARNING.md` + `docs/learning/`: só aprendizados duráveis e não óbvios, conforme `docs/guides/CONTEXT.md` Parte 3 e 5.
-   - `README.md`: como rodar, quando mudar.
-7. **Commit e push:** **você está autorizado** a commitar e dar push **na branch da sessão**, seguindo `docs/guides/COMMITS.md` (mensagens em pt-BR, Conventional Commits, commits atômicos). **Nunca** dê push na `main`, nunca force-push, nunca reescreva histórico existente. O usuário revisa e abre/mescla o pull request.
+### 1.1 Regras gerais
+
+- **Trabalhe até o fim.** Não pare entre fases, não peça confirmação, não pergunte "posso continuar?". Tempo e custo não são restrição. Quando houver uma decisão razoável a tomar, tome-a, registre o motivo (`docs/learning/decision-*.md`) e siga. Só pare antes do fim diante de um bloqueio real do ambiente que impeça qualquer progresso; nesse caso, registre-o em `docs/AUDITORIA.md` e continue tudo o que não depende dele.
+- **Commits direto na `main`.** Você está autorizado a commitar e dar push **na `main`**, sem criar branches nem pull requests, seguindo `docs/guides/COMMITS.md` (pt-BR, Conventional Commits, commits atômicos). Se a sessão estiver em outra branch, faça checkout da `main` atualizada antes de começar.
+- **Pontos de salvamento.** Faça push a cada bloco coerente que passe nas verificações (no mínimo ao fim de cada entrega do roadmap), para que nada se perca se a sessão for interrompida. Nunca deixe a `main` quebrada: se o CI falhar após um push, a correção é a próxima prioridade.
+- **Nunca** force-push, `reset --hard` em trabalho publicado, reescrita de histórico ou `--no-verify`.
+
+### 1.2 Sequência de cada execução
+
+1. **Contexto:** leia `AGENTS.md`, `LEARNING.md` (e só os tópicos relevantes de `docs/learning/`), `docs/ROADMAP.md`, `docs/AUDITORIA.md` e este arquivo. Rode `git log --oneline -30` e `git pull`.
+2. **Diagnóstico do estado atual:** instale dependências, rode `scripts/dev-setup.sh` (se existir) e todas as verificações (§9). Anote o que está quebrado.
+3. **Conserte o que está quebrado** antes de construir algo novo.
+4. **Construção:** percorra o `docs/ROADMAP.md` em ordem (F0 → F6) e implemente **todas** as entregas não marcadas, uma fase após a outra, na mesma sessão. Para cada entrega: implemente (§3–§6, guias §8), teste, marque `[x]` no roadmap, commite e faça push.
+5. **Auditoria** (sempre, mesmo quando a construção acabou de terminar nesta sessão): siga §1.3.
+6. **Atualize a documentação viva:** `docs/ROADMAP.md` (status), `docs/AUDITORIA.md` (resumo desta passada), `AGENTS.md` (comandos reais verificados, com diretório e pré-requisitos), `LEARNING.md` + `docs/learning/` (só aprendizados duráveis, conforme `docs/guides/CONTEXT.md` Partes 3 e 5), `README.md`.
+7. **Commit e push** finais na `main`; confirme que o CI ficou verde (`gh run list` / `gh run watch`, se disponível).
 8. **Relatório final ao usuário** (§10).
+
+### 1.3 Passada de auditoria
+
+Trate o código existente com desconfiança: o objetivo é provar, com evidência, que **cada requisito** deste prompt e de cada critério de aceite do roadmap está realmente implementado e funcionando, e corrigir o que não estiver.
+
+1. **Rastreabilidade:** percorra este prompt seção por seção (§0 a §9) e cada critério de aceite do roadmap. Para cada item, localize o código e o teste que o comprovam. Item sem implementação, incompleto ou sem teste → implemente/complete agora. Uma entrega marcada `[x]` que não se sustenta volta para `[ ]` até ser corrigida.
+2. **Segurança:** revise §4 inteira contra o código: parâmetros sempre por bind, protocolo estendido, somente leitura, timeouts, limites, cancelamento, criptografia, senha nunca devolvida, permissões checadas no servidor em **todas** as rotas e ações, avaliador de bindings sem execução de código, segredos fora do repositório. Tente quebrar: escreva testes de ataque.
+3. **Interface:** confira as regras obrigatórias de `docs/guides/UI.md` §1 e o perfil de validação de `docs/guides/RESPONSIVENESS.md` em todas as telas (320 px, tablet, desktop, teclado, foco, estados de carregando/vazio/erro/permissão, tema claro e escuro, `prefers-reduced-motion`).
+4. **Testes:** procure caminhos sem teste, testes frágeis ou que não testam nada; reforce. Rode tudo de novo.
+5. **Qualidade:** refatore duplicação, funções longas, nomes ruins, código morto, tipos `any`, tratamento de erro fraco. Refatoração não muda comportamento e vem em commit separado.
+6. **Dependências:** atualize patches e minors seguros (especialmente correções de segurança do Next.js); majors só com migração completa e testes passando.
+7. **Documentação:** README, `AGENTS.md` e roadmap batem com a realidade.
+8. **Registro:** escreva em `docs/AUDITORIA.md` o resumo da passada (data, o que foi verificado, problemas encontrados e corrigidos, pendências reais). Pendências viram itens a resolver na mesma passada sempre que possível.
+
+Repita 1–7 enquanto encontrar problemas relevantes e houver sessão disponível.
 
 ---
 
@@ -256,15 +276,15 @@ Idioma: código, identificadores e `AGENTS.md`/`CLAUDE.md` em inglês; **interfa
 
 ---
 
-## 9. Definição de pronto de uma fase
+## 9. Definição de pronto (de cada fase e de cada passada)
 
-- [ ] Critérios de aceite da fase no `docs/ROADMAP.md` atendidos.
+- [ ] Critérios de aceite das fases no `docs/ROADMAP.md` atendidos.
 - [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build` passando (comandos reais registrados no `AGENTS.md`).
 - [ ] E2E dos fluxos novos passando; verificação de acessibilidade sem violações sérias.
 - [ ] Telas novas verificadas em larguras de celular (320–390 px), tablet e desktop, teclado e foco, estados de carregando/vazio/erro/permissão.
 - [ ] Nenhum segredo commitado; `.env.example` atualizado.
-- [ ] Roadmap, `AGENTS.md`, `LEARNING.md` e README atualizados.
-- [ ] Commits atômicos em pt-BR, push na branch da sessão.
+- [ ] Roadmap, `docs/AUDITORIA.md`, `AGENTS.md`, `LEARNING.md` e README atualizados.
+- [ ] Commits atômicos em pt-BR, push na `main`, CI verde.
 - Se algo não pôde ser verificado por limitação do ambiente, **diga qual verificação ficou pendente e por quê**; não marque como passou.
 
 ---
@@ -273,10 +293,10 @@ Idioma: código, identificadores e `AGENTS.md`/`CLAUDE.md` em inglês; **interfa
 
 O usuário é desenvolvedor (Java, Python, Rails), mas o ecossistema React/Next.js é novo para ele. Escreva em **pt-BR**, curto e didático:
 
-1. **O que foi feito** (entregas da fase).
+1. **O que foi feito** nesta passada (fases construídas, problemas da auditoria encontrados e corrigidos).
 2. **Por que** das decisões relevantes (o que é, por que assim, impacto) — explique em uma frase termos que não sejam óbvios.
 3. **Como foi validado** (comandos e resultados reais; o que ficou pendente).
-4. **O que ele precisa decidir ou fazer** (ex.: criar PR, configurar variável de ambiente), se houver.
-5. **Próxima fase.**
+4. **O que ele precisa decidir ou fazer** (ex.: configurar variável de ambiente), se houver.
+5. **Situação geral:** fases concluídas, pendências reais e o que a próxima passada deve priorizar.
 
 Última linha: `LEARNING: <entradas criadas/atualizadas ou nenhum aprendizado durável nesta tarefa>`.
