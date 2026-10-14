@@ -1,0 +1,38 @@
+# Desenvolvimento: `docker compose up -d postgres` sobe só o banco.
+# Produção simples: `docker compose --profile app up -d --build` sobe app + banco.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    profiles: ["app"]
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina BETTER_AUTH_SECRET}
+      SQLBOARD_ENCRYPTION_KEY: ${SQLBOARD_ENCRYPTION_KEY:?defina SQLBOARD_ENCRYPTION_KEY}
+      SQLBOARD_ENCRYPTION_KEY_VERSION: ${SQLBOARD_ENCRYPTION_KEY_VERSION:-1}
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
