@@ -315,8 +315,7 @@ export function PieChartWidget({
           ))}
         </Pie>
         <ChartLegend
-          content={<ChartLegendContent nameKey="key" />}
-          className="flex-wrap"
+          content={<ChartLegendContent nameKey="key" className="flex-wrap" />}
         />
       </PieChart>
     </ChartContainer>
