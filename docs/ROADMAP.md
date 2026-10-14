@@ -128,4 +128,5 @@ Entregas (implemente na ordem; cada uma com as mesmas exigências de segurança 
 - [x] Ações com escrita controlada: formulários com INSERT/UPDATE explícitos, conexão separada de escrita, prévia, confirmação, transação e auditoria.
 - [x] Import/export de apps em JSON (e versionamento em git).
 - [x] Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.
+- [x] Conectar IA (pedido de 2026-10-14): tela `/ai` com token, configuração pronta do Claude Code, Claude Desktop, Codex e Cursor/VS Code, teste de conexão e skill para baixar; ferramentas MCP passo a passo (salvar query, adicionar query, página e componentes); construtor mostra ao vivo as mudanças do agente.
 - [x] Dockerfile de produção e guia de deploy.

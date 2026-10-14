@@ -17,7 +17,18 @@ Plataforma web *SQL-first* para equipes montarem ferramentas internas e painéis
 - **Agendamentos**: uma query ou tela enviada por e-mail (CSV, XLSX ou PDF) em intervalos regulares.
 - **Ações de escrita**: formulários com INSERT/UPDATE revisados por um administrador, com prévia, confirmação, limite de linhas e auditoria.
 - **Importar/exportar telas em JSON** e versionar em git (`pnpm apps:pull` / `pnpm apps:push`).
-- **Servidor MCP** (`/api/mcp`) para agentes de IA criarem e editarem rascunhos de telas com os seus acessos, por token.
+- **Conectar IA** (menu lateral): o Claude Code, o Claude Desktop, o Codex, o Cursor ou outra IA com suporte a MCP cria queries e telas a partir de um pedido em português. Veja a seção abaixo.
+
+## Criar telas com uma IA
+
+O sqlboard tem um servidor **MCP** (*Model Context Protocol*, o padrão que as IAs usam para chamar ferramentas externas) em `/api/mcp`. Com ele a IA consulta o schema do banco, escreve e testa a query, salva na biblioteca e monta a tela, sempre com os **seus** acessos.
+
+1. Abra **Conectar IA** no menu, clique em **Gerar token** e copie a configuração do seu aplicativo (Claude Code, Claude Desktop, Codex, Cursor/VS Code ou outro cliente MCP por HTTP).
+2. Opcional: baixe a **skill** `SKILL.md`, um roteiro que ensina a IA o jeito certo de trabalhar no sqlboard (no Claude Code, salve em `~/.claude/skills/sqlboard/SKILL.md`).
+3. Peça, por exemplo: *"Use o sqlboard para criar uma tela com as vendas por mês e por categoria, com filtro de período."*
+4. Abra o link que a IA devolver: o construtor mostra cada mudança **ao vivo** (e cada mudança vira um passo de Desfazer). Ajuste e clique em **Publicar**; a IA só edita rascunhos.
+
+Ferramentas disponíveis para a IA: `list_connections`, `get_schema`, `run_query`, `list_saved_queries`, `save_query`, `list_apps`, `get_app`, `document_format`, `create_app`, `generate_screen`, `add_query`, `add_page`, `add_widget`, `update_widget`, `remove_widget` e `update_app_draft`. Publicar, compartilhar, excluir telas, agendar envios e rodar ações de escrita continuam exigindo a sessão no navegador.
 
 ## Como rodar (desenvolvimento)
 
@@ -77,8 +88,9 @@ O sqlboard executa SQL contra bancos reais. Além das proteções da aplicação
 - Nenhum segredo real fica no repositório; use `.env.example` como modelo. Em produção o servidor não sobe com os valores de exemplo.
 - Leitores de uma tela recebem só o resultado: o SQL e a conexão das queries ficam no servidor.
 - Ações de escrita usam uma conexão separada (uso "Escrita controlada"), só aceitam um INSERT/UPDATE (UPDATE sempre com WHERE), rodam numa transação, são desfeitas acima do limite de linhas e só gravam depois da prévia confirmada.
-- Tokens de API (MCP e scripts) guardam só o hash, expiram, não administram usuários, conexões nem ações e são revogados ao redefinir a senha.
-- Login com limite de tentativas por IP e por conta, guardado no banco.
+- Tokens de API (MCP e scripts) guardam só o hash, expiram e são revogados ao redefinir a senha. Não administram usuários, conexões, ações nem tokens, e não publicam, compartilham, excluem telas, criam agendamentos nem rodam ações de escrita.
+- A senha guardada de uma conexão só é usada no mesmo servidor, porta, usuário e SSL; mudou algum deles, é preciso digitá-la de novo.
+- Login com limite de tentativas por IP e por conta (só senhas erradas contam; o login certo zera), guardado no banco.
 
 ## Bancos suportados
 
@@ -95,8 +107,8 @@ O sqlboard executa SQL contra bancos reais. Além das proteções da aplicação
 
 Limitações conhecidas:
 
-- **SQL Server** não tem transação somente leitura e executa o lote inteiro sem precisar de `;`. O sqlboard sempre desfaz a transação, recusa palavras que iniciam outro comando (`COMMIT`, `UPDATE`, `EXEC`, `INTO`, `WAITFOR`, `OPENROWSET`…) e confere se a transação continua aberta; mesmo assim, **use um login só com `db_datareader`**: é a defesa principal.
-- **MySQL/MariaDB**: DDL faz *commit* implícito e escapa da transação; por isso o sqlboard só aceita um único comando que comece com `SELECT`, `WITH`, `VALUES`, `TABLE`, `SHOW`, `DESCRIBE`/`DESC` ou `EXPLAIN` (vale para todos os bancos), recusa `INTO OUTFILE`/`LOAD_FILE`, e mesmo assim o usuário do banco deve ter só `SELECT`. `max_execution_time` do MySQL vale só para `SELECT`; o timer do cliente cobre o resto. Variáveis e locks de sessão são limpos antes de a conexão voltar ao pool.
+- **SQL Server** não tem transação somente leitura e executa o lote inteiro sem precisar de `;`. O sqlboard sempre desfaz a transação, recusa palavras que iniciam outro comando (`COMMIT`, `UPDATE`, `EXEC`, `INTO`, `WAITFOR`, `OPENROWSET`…), lê comentários `/* */` aninhados como o próprio SQL Server e confere se a transação continua aberta; mesmo assim, **use um login só com `db_datareader`**: é a defesa principal.
+- **MySQL/MariaDB**: DDL faz *commit* implícito e escapa da transação; por isso o sqlboard só aceita um único comando que comece com `SELECT`, `WITH`, `VALUES`, `TABLE`, `SHOW`, `DESCRIBE`/`DESC` ou `EXPLAIN` (vale para todos os bancos), recusa `INTO OUTFILE`/`LOAD_FILE`, comentários executáveis (`/*! */`) e a dica `SET_VAR`, tira `ANSI_QUOTES`/`NO_BACKSLASH_ESCAPES` do `sql_mode` da sessão (para ler aspas e barras como o validador), e mesmo assim o usuário do banco deve ter só `SELECT`. `max_execution_time` do MySQL vale só para `SELECT`; o timer do cliente cobre o resto. Variáveis e locks de sessão são limpos antes de a conexão voltar ao pool.
 - **Parâmetros de lista** (`multi`): escreva `IN (:lista)` em qualquer banco; no PostgreSQL vira `= ANY($1)` automaticamente.
 - **SQLite**: o arquivo precisa estar dentro de `SQLBOARD_SQLITE_DIR` (padrão `data/sqlite`); caminhos fora dela são recusados. Cada execução roda numa *worker thread* para não travar o servidor.
 - **Oracle** ainda não é suportado (não há como testá-lo neste ambiente).
