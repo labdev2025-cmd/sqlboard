@@ -11,5 +11,5 @@ export const POST = route<{ id: string }>(
       delivery: outcome.mail?.delivery ?? null,
     })
   },
-  { roles: ["admin", "editor"] }
+  { roles: ["admin", "editor"], allowToken: false }
 )

@@ -6,5 +6,5 @@ export const POST = route<{ id: string }>(
     Response.json(
       await previewAction(user, params.id, await readJson(request))
     ),
-  { roles: ["admin", "editor"] }
+  { roles: ["admin", "editor"], allowToken: false }
 )

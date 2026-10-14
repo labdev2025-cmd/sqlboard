@@ -12,7 +12,10 @@ export const PATCH = route<{ id: string }>(
   }
 )
 
-export const DELETE = route<{ id: string }>(async ({ user, params }) => {
-  await deleteApp(user, params.id)
-  return Response.json({ ok: true })
-})
+export const DELETE = route<{ id: string }>(
+  async ({ user, params }) => {
+    await deleteApp(user, params.id)
+    return Response.json({ ok: true })
+  },
+  { allowToken: false }
+)

@@ -8,10 +8,13 @@ export const PUT = route<{ id: string }>(
     Response.json(
       await updateSchedule(user, params.id, await readJson(request))
     ),
-  roles
+  { ...roles, allowToken: false }
 )
 
-export const DELETE = route<{ id: string }>(async ({ user, params }) => {
-  await deleteSchedule(user, params.id)
-  return Response.json({ ok: true })
-}, roles)
+export const DELETE = route<{ id: string }>(
+  async ({ user, params }) => {
+    await deleteSchedule(user, params.id)
+    return Response.json({ ok: true })
+  },
+  { ...roles, allowToken: false }
+)

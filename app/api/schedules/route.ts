@@ -13,5 +13,5 @@ export const POST = route(
     Response.json(await createSchedule(user, await readJson(request)), {
       status: 201,
     }),
-  roles
+  { ...roles, allowToken: false }
 )
