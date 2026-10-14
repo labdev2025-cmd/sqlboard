@@ -42,6 +42,8 @@ export function schemaNamespace(
 
 export type SqlEditorHandle = {
   insert: (text: string) => void
+  /** Replaces the whole text as one editor change (Ctrl+Z undoes it). */
+  replace: (text: string) => boolean
   focus: () => void
 }
 
@@ -93,6 +95,15 @@ export const SqlEditor = React.forwardRef<
         selection: { anchor: from + text.length },
       })
       view.focus()
+    },
+    replace(text) {
+      const view = viewRef.current
+      if (!view) return false
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+        selection: { anchor: text.length },
+      })
+      return true
     },
     focus() {
       viewRef.current?.focus()

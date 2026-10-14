@@ -201,14 +201,23 @@ export function QueryEditor({
       }),
   })
 
+  /** Replaces the SQL through the editor, so Ctrl+Z undoes it too. */
+  function replaceSql(next: string) {
+    if (!editorRef.current?.replace(next)) setSql(next)
+  }
+
   function applySql(next: string) {
     const previous = sql
-    setSql(next)
+    replaceSql(next)
     toast.add({
       title: "Query aplicada no editor",
-      description: "Salve para registrar uma nova versão no histórico.",
+      description:
+        "Ctrl+Z no editor desfaz. Salve para registrar uma nova versão no histórico.",
       type: "success",
-      actionProps: { children: "Desfazer", onClick: () => setSql(previous) },
+      actionProps: {
+        children: "Desfazer",
+        onClick: () => replaceSql(previous),
+      },
     })
   }
 
