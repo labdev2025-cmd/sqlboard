@@ -1,0 +1,30 @@
+# Dependências e build
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Testes e relatórios
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Agentes (arquivos pessoais)
+CLAUDE.local.md
+.claude/settings.local.json
+
+# IDE e SO
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log
