@@ -56,6 +56,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { api, errorMessage } from "@/lib/api-client"
+import { postAndDownload } from "@/lib/download"
 import type { ConnectionView } from "@/lib/connections/schema"
 import type { SavedQueryView } from "@/lib/queries/schema"
 import { SqlParamError, syncParams, type SqlDialect } from "@/lib/sql-params"
@@ -389,7 +390,32 @@ export function QueryEditor({
             }
           />
           <section aria-label="Resultado" className="min-w-0">
-            <ResultPanel state={execution.state} sql={sql} />
+            <ResultPanel
+              state={execution.state}
+              sql={sql}
+              onExport={(format) => {
+                if (!connectionId) return
+                void postAndDownload(
+                  "/api/export",
+                  {
+                    connectionId,
+                    sql,
+                    params,
+                    values,
+                    format,
+                    savedQueryId: query?.id,
+                    fileName: query?.name ?? "query",
+                  },
+                  `query.${format}`
+                ).catch((error) =>
+                  toast.add({
+                    title: "Não foi possível exportar",
+                    description: errorMessage(error),
+                    type: "error",
+                  })
+                )
+              }}
+            />
           </section>
         </div>
         <aside

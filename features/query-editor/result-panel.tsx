@@ -5,6 +5,7 @@ import {
   AlertTriangleIcon,
   Clock3Icon,
   DatabaseIcon,
+  DownloadIcon,
   RowsIcon,
 } from "lucide-react"
 
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/app-shell/states"
 import { ResultTable } from "@/components/data/result-table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCount, formatDuration } from "@/lib/format"
 
@@ -33,7 +35,9 @@ function Elapsed({ startedAt }: { startedAt: number }) {
 export function ResultPanel({
   state,
   sql,
+  onExport,
 }: {
+  onExport?: (format: "csv" | "xlsx") => void
   state: ExecutionState
   sql?: string
 }) {
@@ -90,6 +94,22 @@ export function ResultPanel({
           {formatDuration(result.durationMs)}
         </Badge>
         {result.cached ? <Badge variant="outline">do cache</Badge> : null}
+        {onExport ? (
+          <div className="ml-auto flex gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => onExport("csv")}>
+              <DownloadIcon data-icon="inline-start" />
+              CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onExport("xlsx")}
+            >
+              <DownloadIcon data-icon="inline-start" />
+              XLSX
+            </Button>
+          </div>
+        ) : null}
       </div>
       {result.truncated ? (
         <Alert>
