@@ -80,7 +80,13 @@ export function QueryDialog({
   onSave,
   onAddWidget,
   onGenerate,
+  bindingSuggestions = [],
+  otherQueries = [],
 }: {
+  /** e.g. `{{tabela1.selectedRow.cliente_id}}`, offered as parameter sources. */
+  bindingSuggestions?: string[]
+  /** Other queries of the screen (options of list/multi parameters). */
+  otherQueries?: { id: string; name: string; columns: string[] }[]
   appId: string
   query: AppQuery
   connections: ConnectionView[]
@@ -269,6 +275,14 @@ export function QueryDialog({
             }
             idPrefix="app-query-param"
           />
+          {draft.params.length ? (
+            <ParamSources
+              draft={draft}
+              onChange={setDraft}
+              suggestions={bindingSuggestions}
+              otherQueries={otherQueries.filter((q) => q.id !== draft.id)}
+            />
+          ) : null}
           {execution.state.status === "error" ? (
             <Alert variant="destructive">
               <AlertDescription>{execution.state.message}</AlertDescription>
@@ -526,6 +540,140 @@ export function QueriesList({
           ))}
         </ul>
       )}
+    </section>
+  )
+}
+
+const VARIABLE = "__variable__"
+const CUSTOM = "__custom__"
+
+/**
+ * Where each parameter value comes from (v2 `paramBindings`): the variable of
+ * the same name (filters/URL), or a binding such as a clicked row of a table
+ * (chained filters). List/multi parameters may take options from a query.
+ */
+function ParamSources({
+  draft,
+  onChange,
+  suggestions,
+  otherQueries,
+}: {
+  draft: AppQuery
+  onChange: React.Dispatch<React.SetStateAction<AppQuery>>
+  suggestions: string[]
+  otherQueries: { id: string; name: string; columns: string[] }[]
+}) {
+  const setBinding = (name: string, template: string | null) =>
+    onChange((d) => {
+      const next = { ...d.paramBindings }
+      if (template === null) delete next[name]
+      else next[name] = template
+      return { ...d, paramBindings: next }
+    })
+  return (
+    <section
+      aria-label="Origem dos parâmetros"
+      className="flex flex-col gap-3 rounded-lg border p-3"
+    >
+      <h3 className="text-sm font-medium">Origem dos parâmetros</h3>
+      {draft.params.map((param) => {
+        const template = draft.paramBindings[param.name]
+        const choice =
+          template === undefined
+            ? VARIABLE
+            : suggestions.includes(template)
+              ? template
+              : CUSTOM
+        const id = `param-source-${param.name}`
+        const optionsQuery = otherQueries.find(
+          (q) => q.id === param.optionsQuery?.queryId
+        )
+        return (
+          <div key={param.name} className="grid gap-2 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={id}>
+                <code>:{param.name}</code> vem de
+              </FieldLabel>
+              <SimpleSelect
+                id={id}
+                items={[
+                  {
+                    value: VARIABLE,
+                    label: `Filtro/URL (variável ${param.name})`,
+                  },
+                  ...suggestions.map((s) => ({ value: s, label: s })),
+                  { value: CUSTOM, label: "Binding personalizado" },
+                ]}
+                value={choice}
+                onValueChange={(value) =>
+                  setBinding(
+                    param.name,
+                    value === VARIABLE
+                      ? null
+                      : value === CUSTOM
+                        ? (template ?? "{{}}")
+                        : value
+                  )
+                }
+              />
+              {choice === CUSTOM ? (
+                <Input
+                  aria-label={`Binding de ${param.name}`}
+                  className="font-mono text-xs"
+                  value={template ?? ""}
+                  spellCheck={false}
+                  onChange={(e) => setBinding(param.name, e.target.value)}
+                />
+              ) : null}
+            </Field>
+            {param.type === "list" || param.type === "multi" ? (
+              <Field>
+                <FieldLabel htmlFor={`${id}-options`}>
+                  Opções vindas da query
+                </FieldLabel>
+                <SimpleSelect
+                  id={`${id}-options`}
+                  items={[
+                    { value: "__none__", label: "(opções fixas)" },
+                    ...otherQueries.flatMap((q) =>
+                      q.columns.map((c) => ({
+                        value: `${q.id}::${c}`,
+                        label: `${q.name}.${c}`,
+                      }))
+                    ),
+                  ]}
+                  value={
+                    optionsQuery && param.optionsQuery
+                      ? `${optionsQuery.id}::${param.optionsQuery.valueColumn}`
+                      : "__none__"
+                  }
+                  onValueChange={(value) =>
+                    onChange((d) => ({
+                      ...d,
+                      params: d.params.map((p) => {
+                        if (p.name !== param.name) return p
+                        if (value === "__none__")
+                          return { ...p, optionsQuery: undefined }
+                        const [queryId, valueColumn] = value.split("::")
+                        return {
+                          ...p,
+                          optionsQuery: {
+                            queryId: queryId!,
+                            valueColumn: valueColumn!,
+                          },
+                        }
+                      }),
+                    }))
+                  }
+                />
+                <FieldDescription>
+                  Execute a outra query no construtor para ver as colunas.
+                </FieldDescription>
+              </Field>
+            ) : null}
+          </div>
+        )
+      })}
     </section>
   )
 }

@@ -4,7 +4,11 @@ import * as React from "react"
 
 import type { AppDocument, AppQuery, Page, Widget } from "@/lib/app-schema"
 import { api, ApiError } from "@/lib/api-client"
-import { bindingRoots, type BindingScope } from "@/lib/bindings"
+import {
+  bindingRoots,
+  evaluateBinding,
+  type BindingScope,
+} from "@/lib/bindings"
 import type { Cell, QueryResult, ResultColumn } from "@/lib/data-types"
 import { isEmptyValue } from "@/lib/sql-params/compile"
 import type { RawParamValue, RawParamValues } from "@/lib/sql-params/types"
@@ -78,15 +82,56 @@ export function queriesUsedBy(page: Page, document: AppDocument): AppQuery[] {
         for (const root of bindingRoots(value)) names.add(root)
     }
   }
+  // Queries feeding the parameters of used queries (bindings and option lists).
+  for (let depth = 0; depth < 3; depth++) {
+    for (const query of document.queries.filter((q) => names.has(q.name))) {
+      for (const template of Object.values(query.paramBindings ?? {})) {
+        for (const root of bindingRoots(template)) names.add(root)
+      }
+      for (const param of query.params) {
+        const source = document.queries.find(
+          (q) => q.id === param.optionsQuery?.queryId
+        )
+        if (source) names.add(source.name)
+      }
+    }
+  }
   return document.queries.filter((q) => names.has(q.name))
 }
 
-function paramValues(
+/** Converts a binding result into a parameter value (never code, only data). */
+function toRawValue(value: unknown): RawParamValue {
+  if (value === undefined || value === null) return null
+  if (Array.isArray(value))
+    return value.filter((v) => v !== null && v !== undefined).map(String)
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  )
+    return value
+  return JSON.stringify(value)
+}
+
+/**
+ * Parameter values of a query: a binding (`paramBindings`, v2) wins over the
+ * variable with the same name (filters, URL).
+ */
+export function resolveParams(
   query: AppQuery,
-  variables: RawParamValues
+  variables: RawParamValues,
+  scope: BindingScope
 ): RawParamValues {
   return Object.fromEntries(
-    query.params.map((p) => [p.name, variables[p.name] ?? null])
+    query.params.map((p) => {
+      const template = query.paramBindings?.[p.name]?.trim()
+      return [
+        p.name,
+        template
+          ? toRawValue(evaluateBinding(template, scope))
+          : (variables[p.name] ?? null),
+      ]
+    })
   )
 }
 
@@ -156,14 +201,14 @@ export function useAppRuntime({
       })
       try {
         const result = runner
-          ? await runner(query, paramValues(query, values), controller.signal)
+          ? await runner(query, values, controller.signal)
           : await api<QueryResult & { cached?: boolean }>(
               `/api/apps/${appId}/run`,
               {
                 method: "POST",
                 body: {
                   queryId: query.id,
-                  values: paramValues(query, values),
+                  values,
                   mode,
                 },
                 signal: controller.signal,
@@ -192,60 +237,6 @@ export function useAppRuntime({
     },
     [appId, mode, runner]
   )
-
-  // Auto-run used queries when their parameter values change (debounced).
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      for (const query of used) {
-        if (query.runMode !== "auto") continue
-        const key = JSON.stringify([query.sql, paramValues(query, variables)])
-        if (lastKeys.current.get(query.id) === key) continue
-        lastKeys.current.set(query.id, key)
-        void run(query, variables)
-      }
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [used, variables, run])
-
-  React.useEffect(() => {
-    const all = controllers.current
-    return () => all.forEach((controller) => controller.abort())
-  }, [])
-
-  const runByName = React.useCallback(
-    (name: string) => {
-      const query = document.queries.find((q) => q.name === name)
-      if (query) {
-        lastKeys.current.set(
-          query.id,
-          JSON.stringify([query.sql, paramValues(query, variables)])
-        )
-        void run(query, variables)
-      }
-    },
-    [document.queries, run, variables]
-  )
-
-  const runManual = React.useCallback(() => {
-    for (const query of used) {
-      lastKeys.current.set(
-        query.id,
-        JSON.stringify([query.sql, paramValues(query, variables)])
-      )
-      void run(query, variables)
-    }
-  }, [used, run, variables])
-
-  const setVariable = React.useCallback(
-    (name: string, value: RawParamValue) => {
-      setVariables((prev) => ({ ...prev, [name]: value }))
-    },
-    []
-  )
-
-  const setWidgetState = React.useCallback((id: string, state: WidgetState) => {
-    setWidgetStates((prev) => ({ ...prev, [id]: { ...prev[id], ...state } }))
-  }, [])
 
   const scope = React.useMemo<BindingScope>(() => {
     const result: BindingScope = { vars: variables }
@@ -283,6 +274,57 @@ export function useAppRuntime({
     return result
   }, [variables, states, widgetStates, document])
 
+  // Auto-run used queries when their parameter values change (debounced).
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      for (const query of used) {
+        if (query.runMode !== "auto") continue
+        const values = resolveParams(query, variables, scope)
+        const key = JSON.stringify([query.sql, values])
+        if (lastKeys.current.get(query.id) === key) continue
+        lastKeys.current.set(query.id, key)
+        void run(query, values)
+      }
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [used, variables, scope, run])
+
+  React.useEffect(() => {
+    const all = controllers.current
+    return () => all.forEach((controller) => controller.abort())
+  }, [])
+
+  const runByName = React.useCallback(
+    (name: string) => {
+      const query = document.queries.find((q) => q.name === name)
+      if (query) {
+        const values = resolveParams(query, variables, scope)
+        lastKeys.current.set(query.id, JSON.stringify([query.sql, values]))
+        void run(query, values)
+      }
+    },
+    [document.queries, run, variables, scope]
+  )
+
+  const runManual = React.useCallback(() => {
+    for (const query of used) {
+      const values = resolveParams(query, variables, scope)
+      lastKeys.current.set(query.id, JSON.stringify([query.sql, values]))
+      void run(query, values)
+    }
+  }, [used, run, variables, scope])
+
+  const setVariable = React.useCallback(
+    (name: string, value: RawParamValue) => {
+      setVariables((prev) => ({ ...prev, [name]: value }))
+    },
+    []
+  )
+
+  const setWidgetState = React.useCallback((id: string, state: WidgetState) => {
+    setWidgetStates((prev) => ({ ...prev, [id]: { ...prev[id], ...state } }))
+  }, [])
+
   /** Variables used by queries of this page but not set by any input widget. */
   const freeParams = React.useMemo(() => {
     const controlled = new Set(
@@ -291,12 +333,45 @@ export function useAppRuntime({
     const seen = new Map<string, AppQuery["params"][number]>()
     for (const query of used) {
       for (const param of query.params) {
+        if (query.paramBindings?.[param.name]?.trim()) continue
         if (!controlled.has(param.name) && !seen.has(param.name))
           seen.set(param.name, param)
       }
     }
     return [...seen.values()]
   }, [page.widgets, used])
+
+  /** Options of a list/multi parameter that come from another query. */
+  const paramOptions = React.useCallback(
+    (param: AppQuery["params"][number]) => {
+      const source = document.queries.find(
+        (q) => q.id === param.optionsQuery?.queryId
+      )
+      if (!source || !param.optionsQuery) return undefined
+      const data =
+        (scope[source.name] as { data?: Record<string, unknown>[] } | undefined)
+          ?.data ?? []
+      const seen = new Set<string>()
+      const options: { value: string; label?: string }[] = []
+      for (const row of data) {
+        const value = row[param.optionsQuery.valueColumn]
+        if (value === null || value === undefined) continue
+        const key = String(value)
+        if (seen.has(key)) continue
+        seen.add(key)
+        const label = param.optionsQuery.labelColumn
+          ? row[param.optionsQuery.labelColumn]
+          : undefined
+        options.push(
+          label === undefined || label === null
+            ? { value: key }
+            : { value: key, label: String(label) }
+        )
+      }
+      return options
+    },
+    [document.queries, scope]
+  )
 
   const hasManual = used.some((q) => q.runMode === "manual")
   const queryState = (name: string): QueryState | undefined => {
@@ -316,6 +391,9 @@ export function useAppRuntime({
     runByName,
     runManual,
     freeParams,
+    paramOptions,
+    /** Parameter values a query would run with right now (bindings resolved). */
+    resolve: (query: AppQuery) => resolveParams(query, variables, scope),
     hasManual,
     usedQueries: used,
   }

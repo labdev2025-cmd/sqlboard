@@ -10,6 +10,7 @@ import "react-grid-layout/css/styles.css"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { ParamsForm } from "@/components/params/param-inputs"
 import {
+  ExportMenu,
   WidgetContent,
   WidgetFrame,
   type WidgetActions,
@@ -168,7 +169,7 @@ export function AppViewer({
       if (!query) return
       void downloadExport(appId, {
         queryId: query.id,
-        values: runtime.variables,
+        values: runtime.resolve(query),
         mode,
         format,
       }).catch((error) =>
@@ -262,6 +263,7 @@ export function AppViewer({
               values={runtime.variables}
               onChange={runtime.setVariable}
               idPrefix="filtro"
+              optionsFor={runtime.paramOptions}
             />
             {runtime.hasManual ? (
               <Button onClick={runtime.runManual}>
@@ -280,7 +282,13 @@ export function AppViewer({
           <PageGrid
             page={page}
             render={(widget) => (
-              <WidgetFrame widget={widget} scope={runtime.scope}>
+              <WidgetFrame
+                widget={widget}
+                scope={runtime.scope}
+                toolbar={
+                  <ExportMenu widget={widget} onExport={actions.exportQuery} />
+                }
+              >
                 <WidgetContent
                   widget={widget}
                   scope={runtime.scope}

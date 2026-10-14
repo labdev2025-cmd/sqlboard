@@ -13,6 +13,13 @@ import { ResultTable } from "@/components/data/result-table"
 import { ParamInput } from "@/components/params/param-inputs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
@@ -422,5 +429,44 @@ export function WidgetFrame({
       ) : null}
       <div className="min-h-0 flex-1">{children}</div>
     </section>
+  )
+}
+
+/** "Exportar" menu for widgets bound to a query (`{{q.data}}`). */
+export function ExportMenu({
+  widget,
+  onExport,
+}: {
+  widget: Widget
+  onExport: (query: string, format: "csv" | "xlsx") => void
+}) {
+  const source = /^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\.data\s*\}\}$/.exec(
+    widget.bindings?.data ?? ""
+  )?.[1]
+  if (!source || !WIDGET_INFO[widget.type].usesData) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Exportar dados de ${widget.id}`}
+          />
+        }
+      >
+        <DownloadIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => onExport(source, "csv")}>
+            Exportar CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onExport(source, "xlsx")}>
+            Exportar Excel (XLSX)
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

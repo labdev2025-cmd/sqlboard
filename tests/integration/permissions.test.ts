@@ -185,3 +185,27 @@ describe("biblioteca de queries e auditoria", () => {
     ).rejects.toThrow(/leitura/)
   })
 })
+
+describe("cache de resultado", () => {
+  it("reaproveita o resultado dentro do TTL e registra na auditoria", async () => {
+    const row = await getUsableConnection(editor, connectionId)
+    const request = {
+      user: editor,
+      connection: row,
+      sql: "select now()::text as agora, :x::int as x",
+      params: [{ name: "x", type: "integer" as const, required: true }],
+      values: { x: "1" },
+      source: "app" as const,
+      cacheTtlSeconds: 60,
+    }
+    const first = await executeQuery(request)
+    const second = await executeQuery(request)
+    expect(first.cached).toBe(false)
+    expect(second.cached).toBe(true)
+    expect(second.rows).toEqual(first.rows)
+    const other = await executeQuery({ ...request, values: { x: "2" } })
+    expect(other.cached).toBe(false)
+    const noCache = await executeQuery({ ...request, cacheTtlSeconds: 0 })
+    expect(noCache.cached).toBe(false)
+  })
+})

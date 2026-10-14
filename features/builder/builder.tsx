@@ -290,7 +290,7 @@ export function Builder({
         .then(() =>
           downloadExport(app.id, {
             queryId: query.id,
-            values: runtime.variables,
+            values: runtime.resolve(query),
             mode: "draft",
             format,
           })
@@ -804,6 +804,7 @@ export function Builder({
               values={runtime.variables}
               onChange={runtime.setVariable}
               idPrefix="filtro"
+              optionsFor={runtime.paramOptions}
             />
             {runtime.hasManual ? (
               <Button onClick={runtime.runManual}>Executar</Button>
@@ -868,6 +869,25 @@ export function Builder({
           onSave={saveQuery}
           onAddWidget={addSuggestion}
           onGenerate={generate}
+          bindingSuggestions={doc.pages.flatMap((p) =>
+            p.widgets.flatMap((w) => {
+              if (WIDGET_INFO[w.type].category === "input")
+                return [`{{${w.id}.value}}`]
+              if (!WIDGET_INFO[w.type].usesData) return []
+              const source =
+                /^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\.data\s*\}\}$/.exec(
+                  w.bindings.data ?? ""
+                )?.[1]
+              return columnsOf(source ?? "").map(
+                (c) => `{{${w.id}.selectedRow.${c.name}}}`
+              )
+            })
+          )}
+          otherQueries={doc.queries.map((q) => ({
+            id: q.id,
+            name: q.name,
+            columns: columnsOf(q.name).map((c) => c.name),
+          }))}
         />
       ) : null}
       <LibraryDialog
