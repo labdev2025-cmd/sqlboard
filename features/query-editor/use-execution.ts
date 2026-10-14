@@ -23,7 +23,9 @@ export type RunInput = {
   params: ParamDefinition[]
   values: RawParamValues
   savedQueryId?: string
-  source?: "editor" | "compare"
+  source?: "editor" | "compare" | "app"
+  appId?: string
+  queryName?: string
 }
 
 /** Runs ad-hoc SQL with abort + server-side cancel (pg_cancel_backend). */

@@ -27,33 +27,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { optionsToText, textToOptions } from "@/lib/sql-params/options"
 import {
   PARAM_TYPE_LABELS,
   PARAM_TYPES,
   type ParamDefinition,
-  type ParamOption,
 } from "@/lib/sql-params/types"
-
-export function optionsToText(options?: ParamOption[]) {
-  return (options ?? [])
-    .map((o) =>
-      o.label && o.label !== o.value ? `${o.value}|${o.label}` : o.value
-    )
-    .join("\n")
-}
-
-export function textToOptions(text: string): ParamOption[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [value, label] = line.split("|")
-      return label
-        ? { value: value!.trim(), label: label.trim() }
-        : { value: value!.trim() }
-    })
-}
 
 /** Edits type, label, required flag, default and fixed options of each parameter. */
 export function ParamsConfig({

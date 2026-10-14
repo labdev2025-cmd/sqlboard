@@ -1,23 +1,22 @@
 import type { Metadata } from "next"
-import { LayoutDashboardIcon } from "lucide-react"
 
 import { PageBody, PageHeader } from "@/components/app-shell/page-header"
-import { EmptyState } from "@/components/app-shell/states"
+import { AppsLibrary } from "@/features/apps/apps-library"
+import { canEdit } from "@/lib/auth/roles"
 import { requireUser } from "@/server/auth/session"
 
 export const metadata: Metadata = { title: "Telas" }
 
-export default async function Page() {
-  await requireUser()
+export default async function AppsPage() {
+  const user = await requireUser()
   return (
     <>
-      <PageHeader title="Telas" />
+      <PageHeader
+        title="Telas"
+        description="Painéis e ferramentas montados a partir de queries."
+      />
       <PageBody>
-        <EmptyState
-          icon={LayoutDashboardIcon}
-          title="Nenhuma tela ainda"
-          description="Monte painéis a partir das suas queries."
-        />
+        <AppsLibrary canCreate={canEdit(user.role)} />
       </PageBody>
     </>
   )
