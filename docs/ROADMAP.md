@@ -121,7 +121,7 @@ Critérios de aceite:
 
 ## F6 — Avançado
 
-**Status:** em andamento
+**Status:** concluída em 2026-10-14. Docker validado só no CI (job `docker`); SMTP real não testado (os e-mails vão para a caixa de saída local nos testes).
 
 Entregas (implemente na ordem; cada uma com as mesmas exigências de segurança e testes das fases anteriores):
 - [x] Agendamento de queries/telas com envio por e-mail (CSV/PDF).

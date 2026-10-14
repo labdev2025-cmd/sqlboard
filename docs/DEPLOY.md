@@ -59,6 +59,8 @@ O CI constrói essa imagem a cada push e confere que ela sobe, migra o banco e r
 | `SQLBOARD_SQLITE_DIR` | não | Única pasta de onde conexões SQLite podem abrir arquivos (imagem: `/app/data/sqlite`). |
 | `SQLBOARD_SCHEDULER` | não | `off` desliga o agendador interno. |
 | `SQLBOARD_MIGRATE_ON_BOOT` | não | `on` na imagem; desligue se preferir migrar à parte (`pnpm db:migrate`). |
+| `SQLBOARD_IP_HEADERS` | não (`x-forwarded-for`) | Cabeçalho com o IP do cliente que o proxy **sobrescreve** (ex.: `x-real-ip`, `cf-connecting-ip`). Usado no limite de tentativas de login. |
+| `SQLBOARD_TRUSTED_PROXIES` | não | IPs/CIDRs dos proxies confiáveis, para ler uma cadeia `X-Forwarded-For`. |
 | `SQLBOARD_AUTH_RATE_LIMIT` | não | `off` só em testes automatizados. **Nunca** em produção. |
 
 ## 4. HTTPS e proxy reverso
@@ -72,6 +74,8 @@ sqlboard.exemplo.com {
 ```
 
 Repasse os cabeçalhos `Host` e `X-Forwarded-*` (padrão no Caddy). As respostas já saem com `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff` e `Referrer-Policy`.
+
+O limite de tentativas de login (10 por minuto por IP e 20 a cada 15 minutos por conta, guardado no banco) depende do IP real do cliente. Garanta que só o proxy alcança a porta 3000 e configure `SQLBOARD_IP_HEADERS` com o cabeçalho que ele sobrescreve (ou `SQLBOARD_TRUSTED_PROXIES` com os endereços dele). Sem isso, um cliente pode forjar o cabeçalho e escapar do limite por IP (o limite por conta continua valendo).
 
 ## 5. Conexões com bancos da empresa
 
@@ -107,6 +111,7 @@ O agendador roda dentro da aplicação a cada 30 segundos. Com várias réplicas
 Funciona bem com **uma réplica**. Com várias, tudo continua correto, com estas ressalvas:
 
 - o cache de resultados é por processo (uma réplica pode reexecutar uma query que outra já tinha em cache);
+- o limite de tentativas de login fica no banco e já vale para todas as réplicas;
 - o cancelamento de uma execução precisa chegar à réplica que a está rodando (use afinidade de sessão no balanceador);
 - o token de prévia das ações de escrita é de uso único por processo; com várias réplicas, prefira afinidade de sessão.
 
@@ -116,5 +121,7 @@ Funciona bem com **uma réplica**. Com várias, tudo continua correto, com estas
 - [ ] Segredos gerados aleatoriamente e guardados num cofre; `.env` fora do git.
 - [ ] Usuários de banco só com leitura nas conexões de leitura.
 - [ ] `SQLBOARD_MAIL_ALLOWED_DOMAINS` definido.
+- [ ] Porta 3000 acessível só pelo proxy; `SQLBOARD_IP_HEADERS` (ou `SQLBOARD_TRUSTED_PROXIES`) configurado.
+- [ ] Logins de SQL Server só com `db_datareader`; usuários MySQL sem o privilégio `FILE`.
 - [ ] Backup do PostgreSQL e do volume `/app/data` testado.
 - [ ] Primeiro administrador criado logo após o deploy.

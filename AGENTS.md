@@ -15,19 +15,22 @@ sqlboard lets a team connect relational databases, write SQL queries whose param
 Stack: Next.js 16 (App Router, `output: "standalone"`), TypeScript 6 (strict), pnpm, shadcn/ui on Base UI (`base-nova`), Tailwind 4, Drizzle + PostgreSQL for metadata, Better Auth, Vitest, Playwright + axe.
 
 ## Layout
-- No `src/`: the shadcn `next` template convention. `app/` (routes; `(auth)` and `(app)` groups, JSON API under `app/api`), `components/ui/` (shadcn, owned code), `components/` (product compositions), `features/<area>/` (client screens), `server/` (server-only: `db`, `auth`, `crypto`, `datasources`, `execution`, `services`), `lib/` (pure modules shared by client and server, e.g. `lib/sql-params`).
-- Every API route goes through `route()` in `server/http.ts` (session, role check, uniform errors). Services in `server/services/*` hold the permission rules.
+- No `src/`: the shadcn `next` template convention. `app/` (routes; `(auth)` and `(app)` groups, JSON API under `app/api`), `components/ui/` (shadcn, owned code), `components/` (product compositions), `features/<area>/` (client screens), `server/` (server-only: `db`, `auth`, `crypto`, `datasources`, `execution`, `services`, `mail`, `mcp`), `lib/` (pure modules shared by client and server, e.g. `lib/sql-params`).
+- Every API route goes through `route()` in `server/http.ts` (session or `Bearer sqlb_…` API token, role check, uniform errors); `allowToken: false` keeps admin, connection, action and token management session-only. Services in `server/services/*` hold the permission rules. `/api/mcp` (Streamable HTTP, stateless) accepts tokens only.
+- Datasource adapters (`server/datasources/{postgres,mysql,sqlite,mssql}.ts`) implement `execute` (read-only) and `executeWrite` (write actions); statement validation per dialect is in `lib/sql-params/tokenizer.ts`.
 
 ## Commands
 Run from the repository root. Prerequisites: Node 22+, pnpm 10, PostgreSQL 16 (local service or `docker compose up -d postgres`), `.env` copied from `.env.example`. All verified on 2026-10-14 in the cloud environment.
 - `pnpm install` — dependencies.
-- `bash scripts/dev-setup.sh` (`pnpm setup`) — idempotent: starts Postgres, creates `sqlboard`, `sqlboard_test`, `sqlboard_demo` and the read-only demo user, loads fictitious data, migrates, seeds the "Demo" connection. `ADMIN_DATABASE_URL` overrides the superuser connection (CI); `SKIP_DEMO_DATA=1` keeps existing demo data.
+- `bash scripts/dev-setup.sh` (`pnpm setup`) — idempotent: starts Postgres, creates `sqlboard`, `sqlboard_test`, `sqlboard_demo`, the read-only demo user and the write-action user (`sqlboard_demo_rw`, INSERT/UPDATE on `loja.solicitacoes` only), loads fictitious data, creates the optional MySQL/MariaDB demo (local root socket or `MYSQL_ADMIN_*`) and the SQLite demo (`data/sqlite/loja.db`), migrates and seeds the "Demo" connection. `ADMIN_DATABASE_URL` overrides the superuser connection (CI); `SKIP_DEMO_DATA=1` keeps existing demo data.
 - `pnpm dev` — development server on :3000.
 - `pnpm lint`, `pnpm format:check`, `pnpm typecheck`.
-- `pnpm test` — Vitest (unit + integration against real Postgres; recreates `sqlboard_test`).
+- `pnpm test` — Vitest (unit + integration against real Postgres; recreates `sqlboard_test`). MySQL tests skip when no MySQL/MariaDB is reachable and SQL Server tests skip without `MSSQL_TEST_HOST`; CI sets `REQUIRE_DB_TESTS=1` with MySQL 8.4 and SQL Server 2022 services (SQL Server cannot be installed in the sandbox).
 - `pnpm build` then `pnpm start` — standalone production server (`scripts/start.mjs`).
 - `pnpm test:e2e` — Playwright against the production build (run `pnpm build` first); recreates `sqlboard_e2e`. In the cloud sandbox set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` (do not run `playwright install`).
 - `pnpm db:generate --name <nome>` after changing `server/db/schema.ts`; `pnpm db:migrate`; `pnpm db:seed`.
+- `pnpm apps:pull <dir>` / `pnpm apps:push <dir>` (`SQLBOARD_URL`, `SQLBOARD_TOKEN`) — screens as JSON for git; `pnpm keys:rotate` — re-encrypt connection passwords after a key rotation.
+- Docker: not available in the sandbox; the CI `docker` job builds the image and smoke-tests it (health, migrations, login page). Deployment guide: `docs/DEPLOY.md`.
 - shadcn CLI: `ui.shadcn.com` is blocked by the sandbox proxy; see `docs/learning/gotcha-shadcn-registry-bloqueado.md` for the local registry workaround.
 
 ## Conventions and constraints

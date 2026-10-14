@@ -7,7 +7,17 @@ Plataforma web *SQL-first* para equipes montarem ferramentas internas e painéis
 3. Monte a tela arrastando e soltando tabelas, gráficos, KPIs, filtros e botões, com visual shadcn/ui.
 4. Publique e compartilhe com a equipe.
 
-> **Status:** em construção por fases (veja `docs/ROADMAP.md`).
+> **Status:** fases F0 a F6 concluídas (veja `docs/ROADMAP.md` e `docs/AUDITORIA.md`). Para colocar em produção, siga `docs/DEPLOY.md`.
+
+## O que dá para fazer
+
+- **Conexões** com PostgreSQL, MySQL/MariaDB, SQLite e SQL Server, com senha cifrada e acesso por pessoa.
+- **Editor SQL** com parâmetros tipados automáticos, cláusulas opcionais `[[ ... ]]`, cancelamento, explorador de schema, histórico de versões e "Melhorar com IA" por copiar e colar.
+- **Telas** montadas por arrastar e soltar (tabelas, gráficos, KPIs, filtros, botões), com filtros encadeados, várias páginas, publicação com versões, compartilhamento e exportação CSV/XLSX. "Gerar tela automática" e "Gerar com IA" criam uma proposta pronta.
+- **Agendamentos**: uma query ou tela enviada por e-mail (CSV, XLSX ou PDF) em intervalos regulares.
+- **Ações de escrita**: formulários com INSERT/UPDATE revisados por um administrador, com prévia, confirmação, limite de linhas e auditoria.
+- **Importar/exportar telas em JSON** e versionar em git (`pnpm apps:pull` / `pnpm apps:push`).
+- **Servidor MCP** (`/api/mcp`) para agentes de IA criarem e editarem rascunhos de telas com os seus acessos, por token.
 
 ## Como rodar (desenvolvimento)
 
@@ -36,6 +46,8 @@ O seed cria a conexão **Demo**, ligada ao banco `sqlboard_demo` (uma loja **fic
 | `pnpm build` e `pnpm start` | Build de produção (standalone) e servidor |
 | `pnpm test:e2e` | Testes de ponta a ponta (Playwright + axe) sobre o build |
 | `pnpm db:generate --name <nome>` / `pnpm db:migrate` / `pnpm db:seed` | Migrações e seed |
+| `pnpm apps:pull <pasta>` / `pnpm apps:push <pasta>` | Baixa/envia telas em JSON para versionar em git (`SQLBOARD_URL` e `SQLBOARD_TOKEN`) |
+| `pnpm keys:rotate` | Recifra as senhas de conexão depois de trocar `SQLBOARD_ENCRYPTION_KEY` |
 
 ## Como o projeto é construído
 
@@ -62,7 +74,11 @@ O sqlboard executa SQL contra bancos reais. Além das proteções da aplicação
 
 - Senhas de conexão são cifradas com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`) e nunca voltam para o navegador.
 - Toda checagem de permissão (papel, conexão, tela) é feita no servidor.
-- Nenhum segredo real fica no repositório; use `.env.example` como modelo.
+- Nenhum segredo real fica no repositório; use `.env.example` como modelo. Em produção o servidor não sobe com os valores de exemplo.
+- Leitores de uma tela recebem só o resultado: o SQL e a conexão das queries ficam no servidor.
+- Ações de escrita usam uma conexão separada (uso "Escrita controlada"), só aceitam um INSERT/UPDATE (UPDATE sempre com WHERE), rodam numa transação, são desfeitas acima do limite de linhas e só gravam depois da prévia confirmada.
+- Tokens de API (MCP e scripts) guardam só o hash, expiram, não administram usuários, conexões nem ações e são revogados ao redefinir a senha.
+- Login com limite de tentativas por IP e por conta, guardado no banco.
 
 ## Bancos suportados
 
@@ -79,7 +95,8 @@ O sqlboard executa SQL contra bancos reais. Além das proteções da aplicação
 
 Limitações conhecidas:
 
-- **SQL Server** não tem transação somente leitura: o sqlboard sempre desfaz a transação, mas comandos que não respeitam transação (ex.: `xp_cmdshell`, linked servers) só são barrados pelas permissões do usuário. Use um login só com `db_datareader`.
-- **MySQL/MariaDB**: DDL faz *commit* implícito e escapa da transação; por isso o sqlboard só aceita um único comando que comece com `SELECT`, `WITH`, `VALUES`, `TABLE`, `SHOW`, `DESCRIBE`/`DESC` ou `EXPLAIN` (vale para todos os bancos), e mesmo assim o usuário do banco deve ter só `SELECT`. `max_execution_time` do MySQL vale só para `SELECT`; o timer do cliente cobre o resto.
+- **SQL Server** não tem transação somente leitura e executa o lote inteiro sem precisar de `;`. O sqlboard sempre desfaz a transação, recusa palavras que iniciam outro comando (`COMMIT`, `UPDATE`, `EXEC`, `INTO`, `WAITFOR`, `OPENROWSET`…) e confere se a transação continua aberta; mesmo assim, **use um login só com `db_datareader`**: é a defesa principal.
+- **MySQL/MariaDB**: DDL faz *commit* implícito e escapa da transação; por isso o sqlboard só aceita um único comando que comece com `SELECT`, `WITH`, `VALUES`, `TABLE`, `SHOW`, `DESCRIBE`/`DESC` ou `EXPLAIN` (vale para todos os bancos), recusa `INTO OUTFILE`/`LOAD_FILE`, e mesmo assim o usuário do banco deve ter só `SELECT`. `max_execution_time` do MySQL vale só para `SELECT`; o timer do cliente cobre o resto. Variáveis e locks de sessão são limpos antes de a conexão voltar ao pool.
+- **Parâmetros de lista** (`multi`): escreva `IN (:lista)` em qualquer banco; no PostgreSQL vira `= ANY($1)` automaticamente.
 - **SQLite**: o arquivo precisa estar dentro de `SQLBOARD_SQLITE_DIR` (padrão `data/sqlite`); caminhos fora dela são recusados. Cada execução roda numa *worker thread* para não travar o servidor.
 - **Oracle** ainda não é suportado (não há como testá-lo neste ambiente).
