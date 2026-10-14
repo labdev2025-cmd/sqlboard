@@ -49,7 +49,7 @@ Critérios de aceite:
 **Status:** pendente
 
 Entregas:
-- [ ] Queries salvas (nome, descrição, conexão, SQL, parâmetros).
+- [ ] Biblioteca de queries salvas (nome, descrição, tags, conexão, SQL, parâmetros), com busca.
 - [ ] Editor CodeMirror 6 com dialeto PostgreSQL, autocomplete do schema introspectado, atalho para executar, tema claro/escuro.
 - [ ] Tokenizador/compilador de parâmetros `:nome` e `{{nome}}` (`src/lib/sql-params`), detecção automática e formulário de parâmetros tipados.
 - [ ] Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
@@ -73,11 +73,12 @@ Entregas:
 - [ ] Widgets do MVP (`PROMPT.md` §5.1) ligados a uma query da tela e aos seus parâmetros.
 - [ ] Sugestão de widget pelo tipo das colunas e botão "Gerar tela automática".
 - [ ] Modo visualização responsivo (empilha no celular), parâmetros no topo, URL com parâmetros.
-- [ ] Lista de apps, criar, duplicar, excluir (com confirmação).
+- [ ] Biblioteca de telas (`PROMPT.md` §5.0): cada tela com nome, descrição/finalidade e tags; lista com busca e filtros; criar, editar dados, duplicar, excluir (com confirmação). Descrição exibida no modo visualização.
+- [ ] Usar query da biblioteca numa tela (cópia com referência à origem) ou criar query direto na tela.
 
 Critérios de aceite:
 - Testes: validação do schema, sugestão por tipo de coluna, geração automática.
-- E2E: criar app a partir de query, gerar tela automática, mover/redimensionar widget (com mouse e com teclado), salvar, reabrir, visualizar em celular e desktop.
+- E2E: criar duas telas com nomes, descrições e queries diferentes, encontrá-las pela busca; criar app a partir de query, gerar tela automática, mover/redimensionar widget (com mouse e com teclado), salvar, reabrir, visualizar em celular e desktop.
 - Perfil "nova aplicação/fundação" do `RESPONSIVENESS.md` aplicado ao editor e ao modo visualização.
 
 ---

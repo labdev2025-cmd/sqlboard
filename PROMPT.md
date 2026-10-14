@@ -201,7 +201,9 @@ Um JSON por aplicação, validado por Zod e versionado:
 ```jsonc
 {
   "schemaVersion": 1,
-  "app": { "id": "…", "name": "Frota por município" },
+  "app": { "id": "…", "name": "Frota por município",
+           "description": "Acompanhar a frota por tipo de veículo em cada município, para o relatório mensal da equipe.",
+           "tags": ["frota", "mensal"] },
   "queries": [
     { "id": "q1", "name": "frota", "connectionId": "…", "sql": "select … where uf = :uf",
       "params": [{ "name": "uf", "type": "text", "default": "CE", "required": true }],
@@ -220,7 +222,18 @@ Um JSON por aplicação, validado por Zod e versionado:
 
 - `type` é um `discriminatedUnion`; cada tipo de widget tem seu schema de `props` (que também gera o painel de propriedades).
 - Mudou o formato? Incremente `schemaVersion` e escreva a migração `vN → vN+1`, aplicada ao carregar (com teste).
-- Persistência: tabela de apps com **rascunho** + tabela `app_versions` com snapshots imutáveis; "publicar" aponta a versão ativa.
+- Persistência: tabela de apps com **rascunho** + tabela `app_versions` com snapshots imutáveis; "publicar" aponta a versão ativa. Metadados da tela (nome, descrição, tags, dono, datas de criação/alteração/publicação) ficam em colunas da tabela de apps para listagem e busca, além de estarem no documento.
+- Queries da tela: criadas direto no editor da tela **ou** trazidas da biblioteca de queries salvas (F2). Ao trazer, a query é **copiada** para dentro da tela (com referência à origem), para que versões publicadas não mudem quando alguém editar a query da biblioteca.
+
+### 5.0 Biblioteca de telas
+
+Cada tela é um item com identidade própria; o usuário cria quantas quiser, cada uma com suas queries.
+
+- **Nome** (obrigatório, único por dono) e **descrição/finalidade** ("por que esta tela existe": para que serve, quem usa, de onde vêm os dados). A descrição é pedida já no diálogo de criação (opcional, mas incentivada com texto de ajuda), editável depois e exibida no modo visualização (no topo, recolhível) e nos cards da lista.
+- **Tags** livres para organizar.
+- **Lista de telas**: cards ou tabela com nome, descrição resumida, tags, dono, última alteração e status (rascunho/publicada); busca por nome, descrição e tags; filtros por tag e "minhas/compartilhadas comigo"; estado vazio com ação "Criar primeira tela".
+- Ações: criar, abrir, editar, visualizar, renomear/editar descrição, duplicar, excluir (com `AlertDialog`).
+- O mesmo vale para a biblioteca de queries (F2): nome, descrição e tags, com busca.
 
 ### 5.1 Componentes (widgets)
 
