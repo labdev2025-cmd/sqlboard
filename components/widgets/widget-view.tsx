@@ -115,6 +115,17 @@ function DataState({
       </MissingConfig>
     )
   }
+  if (dataset.truncated) {
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-1">
+        <div className="min-h-0 flex-1">{children}</div>
+        <p className="shrink-0 text-xs text-muted-foreground">
+          Mostrando {dataset.rows.length.toLocaleString("pt-BR")} linhas; o
+          resultado tem mais (limite da conexão). Refine os filtros.
+        </p>
+      </div>
+    )
+  }
   return <>{children}</>
 }
 

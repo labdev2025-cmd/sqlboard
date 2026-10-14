@@ -284,8 +284,22 @@ export function QueryDialog({
             />
           ) : null}
           {execution.state.status === "error" ? (
-            <Alert variant="destructive">
-              <AlertDescription>{execution.state.message}</AlertDescription>
+            <Alert variant="destructive" role="alert">
+              <AlertDescription className="flex flex-col gap-2">
+                <p>{execution.state.message}</p>
+                <pre className="max-h-40 overflow-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap text-foreground">
+                  {draft.sql}
+                </pre>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {result?.truncated ? (
+            <Alert>
+              <AlertDescription>
+                Mostrando {result.rowCount} de mais linhas (limite de{" "}
+                {result.limit}). As colunas e a tela gerada consideram só essas
+                linhas.
+              </AlertDescription>
             </Alert>
           ) : null}
           {result ? (
