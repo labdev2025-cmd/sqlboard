@@ -27,6 +27,29 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root-ci-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot-ci-only"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 30
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Sa_ci_only_123
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Sa_ci_only_123 -Q 'SELECT 1' -b"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
     env:
       # Fictitious values for CI only.
       ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
@@ -36,6 +59,14 @@ jobs:
       SQLBOARD_ENCRYPTION_KEY: Y2ktb25seS1rZXktY2ktb25seS1rZXktMzJieXRlcyE=
       SQLBOARD_ENCRYPTION_KEY_VERSION: "1"
       NEXT_TELEMETRY_DISABLED: "1"
+      MYSQL_ADMIN_HOST: 127.0.0.1
+      MYSQL_ADMIN_PASSWORD: root-ci-only
+      MYSQL_TEST_HOST: 127.0.0.1
+      MSSQL_ADMIN_HOST: 127.0.0.1
+      MSSQL_ADMIN_PASSWORD: Sa_ci_only_123
+      MSSQL_TEST_HOST: 127.0.0.1
+      # Integration tests fail instead of skipping when a database is missing.
+      REQUIRE_DB_TESTS: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -46,6 +77,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Banco de metadados, demo e seed
         run: bash scripts/dev-setup.sh
+      - name: Demo SQL Server
+        run: node scripts/demo-mssql.mjs
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck

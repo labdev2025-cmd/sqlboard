@@ -108,11 +108,11 @@ Critérios de aceite:
 
 ## F5 — Multi-banco
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14. SQL Server é validado só no CI (sem instalação local possível). Oracle não implementado: o ambiente não permite testá-lo.
 
 Entregas:
-- [ ] Adapters MySQL/MariaDB (`mysql2`), SQLite (`better-sqlite3`), SQL Server (`mssql`); Oracle (`oracledb`) se o ambiente permitir testar.
-- [ ] Dialeto correto no editor e no compilador de parâmetros; mapeamento de tipos; somente leitura e timeout equivalentes em cada banco (documentar limitações de cada um).
+- [x] Adapters MySQL/MariaDB (`mysql2`), SQLite (`better-sqlite3`), SQL Server (`mssql`); Oracle (`oracledb`) se o ambiente permitir testar.
+- [x] Dialeto correto no editor e no compilador de parâmetros; mapeamento de tipos; somente leitura e timeout equivalentes em cada banco (documentar limitações de cada um).
 
 Critérios de aceite:
 - Testes de integração por banco (containers via Docker quando disponível); tabela de capacidades por banco no README.

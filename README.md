@@ -63,3 +63,23 @@ O sqlboard executa SQL contra bancos reais. Além das proteções da aplicação
 - Senhas de conexão são cifradas com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`) e nunca voltam para o navegador.
 - Toda checagem de permissão (papel, conexão, tela) é feita no servidor.
 - Nenhum segredo real fica no repositório; use `.env.example` como modelo.
+
+## Bancos suportados
+
+| Recurso | PostgreSQL | MySQL / MariaDB | SQLite | SQL Server |
+| --- | --- | --- | --- | --- |
+| Driver | `pg` + `pg-cursor` | `mysql2` | `better-sqlite3` | `mssql` (tedious) |
+| Parâmetros | `$1` (protocolo estendido) | `?` (prepared statement no servidor) | `?` (statement preparado) | `@p1` (RPC parametrizado) |
+| Somente leitura | `BEGIN READ ONLY` | `START TRANSACTION READ ONLY` | arquivo aberto `readonly` + `query_only` | transação sempre desfeita (`ROLLBACK`) |
+| Tempo limite | `statement_timeout` + `pg_cancel_backend` | `max_execution_time` / `max_statement_time` + `KILL QUERY` + timer no cliente | worker encerrado | timer no cliente + cancelamento do request |
+| Cancelamento | sim | sim | sim | sim |
+| Explorador de schema | sim | sim | sim | sim |
+| EXPLAIN | sim | sim | `EXPLAIN QUERY PLAN` | não |
+| Testado em | CI e local | CI (MySQL 8.4) e local (MariaDB 10.11) | CI e local | CI (SQL Server 2022) |
+
+Limitações conhecidas:
+
+- **SQL Server** não tem transação somente leitura: o sqlboard sempre desfaz a transação, mas comandos que não respeitam transação (ex.: `xp_cmdshell`, linked servers) só são barrados pelas permissões do usuário. Use um login só com `db_datareader`.
+- **MySQL/MariaDB**: DDL faz *commit* implícito e escapa da transação; por isso o sqlboard só aceita um único comando que comece com `SELECT`, `WITH`, `VALUES`, `TABLE`, `SHOW`, `DESCRIBE`/`DESC` ou `EXPLAIN` (vale para todos os bancos), e mesmo assim o usuário do banco deve ter só `SELECT`. `max_execution_time` do MySQL vale só para `SELECT`; o timer do cliente cobre o resto.
+- **SQLite**: o arquivo precisa estar dentro de `SQLBOARD_SQLITE_DIR` (padrão `data/sqlite`); caminhos fora dela são recusados. Cada execução roda numa *worker thread* para não travar o servidor.
+- **Oracle** ainda não é suportado (não há como testá-lo neste ambiente).
