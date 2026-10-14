@@ -381,6 +381,74 @@ describe("comandos perigosos por dialeto", () => {
     ).not.toThrow()
   })
 
+  it("SQL Server: comentários aninhados não escondem outro comando", async () => {
+    const { assertSingleReadStatement, assertSingleWriteStatement } =
+      await import("@/lib/sql-params")
+    // SQL Server nests /* */: everything after the inner "*/" is still a
+    // comment until the outer one closes, so the quote below is code.
+    expect(() =>
+      assertSingleReadStatement(
+        "SELECT 1 AS a /* /* */ ' */ COMMIT UPDATE t SET x=1 BEGIN TRAN --'",
+        "mssql"
+      )
+    ).toThrow(/COMMIT/)
+    expect(() =>
+      assertSingleWriteStatement(
+        "UPDATE t SET a = 1 WHERE id = :id /* /* */ ' */ DELETE FROM t --'",
+        "mssql"
+      )
+    ).toThrow()
+    expect(() =>
+      assertSingleReadStatement("select 1 /* a /* b */ c */ as x", "mssql")
+    ).not.toThrow()
+  })
+
+  it("MySQL: comentários executáveis, '--' sem espaço e aspas duplas com barra", async () => {
+    const { assertSingleReadStatement } = await import("@/lib/sql-params")
+    const read = (sql: string) => () => assertSingleReadStatement(sql, "mysql")
+    expect(read("SELECT 1 /*! INTO OUTFILE '/tmp/x' */")).toThrow(/executáveis/)
+    expect(read("SELECT 1 /*M!100000 INTO OUTFILE '/tmp/x' */")).toThrow(
+      /executáveis/
+    )
+    expect(read("SELECT /*+ SET_VAR(sql_mode='ANSI_QUOTES') */ 1")).toThrow(
+      /SET_VAR/
+    )
+    expect(read("SELECT /*+ MAX_EXECUTION_TIME(100) */ 1")).not.toThrow()
+    // "--1" is "minus minus one" in MySQL, not a comment.
+    expect(read("SELECT 1 --1, LOAD_FILE('/etc/passwd')")).toThrow(/arquivos/)
+    expect(read("SELECT 1 -- comentário\n")).not.toThrow()
+    // Backslash escapes the quote inside "..." in MySQL.
+    expect(read('SELECT "\\"" INTO OUTFILE \'/tmp/x\' -- "')).toThrow(
+      /arquivos/
+    )
+    expect(read('SELECT "a\\"b" AS texto')).not.toThrow()
+  })
+
+  it("recusa comentário, texto ou identificador sem fechamento", async () => {
+    const { assertSingleReadStatement, assertSingleWriteStatement } =
+      await import("@/lib/sql-params")
+    for (const dialect of ["postgres", "mysql", "sqlite", "mssql"] as const) {
+      expect(() =>
+        assertSingleReadStatement("select 1 /* aberto", dialect)
+      ).toThrow(/sem fechamento/)
+      expect(() =>
+        assertSingleReadStatement("select 'aberto", dialect)
+      ).toThrow(/sem fechamento/)
+      expect(() =>
+        assertSingleWriteStatement('update t set a = 1 where "x = 1', dialect)
+      ).toThrow(/sem fechamento/)
+    }
+    expect(() =>
+      assertSingleReadStatement("select 1 /* /* */", "postgres")
+    ).toThrow(/sem fechamento/)
+    expect(() => assertSingleReadStatement("select 'abc\\'", "mysql")).toThrow(
+      /sem fechamento/
+    )
+    expect(() =>
+      assertSingleReadStatement("select $x$ corpo", "postgres")
+    ).toThrow(/sem fechamento/)
+  })
+
   it("UPDATE exige WHERE no nível principal, não só numa subquery", async () => {
     const { assertSingleWriteStatement } = await import("@/lib/sql-params")
     expect(() =>

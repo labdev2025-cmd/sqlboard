@@ -43,13 +43,16 @@ function readName(sql: string, from: number): number {
   return i
 }
 
-/** Index just past the closing quote of a quote-delimited token with doubled-quote escaping. */
-function skipQuoted(
+/**
+ * Scans a quote-delimited token with doubled-quote escaping; returns the
+ * index just past the closing quote and whether that quote was found.
+ */
+function quoted(
   sql: string,
   start: number,
   quote: string,
   backslashEscapes: boolean
-): number {
+): { end: number; closed: boolean } {
   let i = start + 1
   while (i < sql.length) {
     const ch = sql[i]!
@@ -62,11 +65,11 @@ function skipQuoted(
         i += 2
         continue
       }
-      return i + 1
+      return { end: i + 1, closed: true }
     }
     i++
   }
-  return sql.length
+  return { end: sql.length, closed: false }
 }
 
 /** Matches a PostgreSQL dollar-quote opening tag (`$$` or `$tag$`) at `start`. */
@@ -81,30 +84,43 @@ function dollarTag(sql: string, start: number): string | null {
   return sql[i] === "$" ? sql.slice(start, i + 1) : null
 }
 
+/** Characters MySQL accepts after "--" to start a comment. */
+const MYSQL_DASH_COMMENT_END = /[\s\x00-\x1f]/
+
 /**
  * If a protected region (comment, string, quoted identifier, dollar-quoted
- * body) starts at `i`, returns the index just past it; otherwise null.
+ * body) starts at `i`, returns where it ends and whether it was properly
+ * closed; otherwise null. The rules follow each server's lexer: any
+ * disagreement would let code hide inside what we think is a comment.
  */
-function skipProtected(
+function scanProtected(
   sql: string,
   i: number,
   dialect: SqlDialect
-): number | null {
+): { end: number; closed: boolean } | null {
   const ch = sql[i]!
   const next = sql[i + 1]
 
-  // -- line comment (MySQL also accepts "#" comments)
-  if ((ch === "-" && next === "-") || (ch === "#" && dialect === "mysql")) {
+  // -- line comment. MySQL needs whitespace (or the end) after "--":
+  // "1 --1" is "1 - -1" there. MySQL also accepts "#" comments.
+  const dashComment =
+    ch === "-" &&
+    next === "-" &&
+    (dialect !== "mysql" ||
+      i + 2 >= sql.length ||
+      MYSQL_DASH_COMMENT_END.test(sql[i + 2]!))
+  if (dashComment || (ch === "#" && dialect === "mysql")) {
     const end = sql.indexOf("\n", i)
-    return end === -1 ? sql.length : end + 1
+    return { end: end === -1 ? sql.length : end + 1, closed: true }
   }
 
-  // /* block comment */ (PostgreSQL nests them)
+  // /* block comment */ (PostgreSQL and SQL Server nest them)
   if (ch === "/" && next === "*") {
+    const nests = dialect === "postgres" || dialect === "mssql"
     let depth = 1
     let j = i + 2
     while (j < sql.length && depth > 0) {
-      if (sql[j] === "/" && sql[j + 1] === "*" && dialect === "postgres") {
+      if (sql[j] === "/" && sql[j + 1] === "*" && nests) {
         depth++
         j += 2
       } else if (sql[j] === "*" && sql[j + 1] === "/") {
@@ -114,7 +130,7 @@ function skipProtected(
         j++
       }
     }
-    return j
+    return { end: j, closed: depth === 0 }
   }
 
   // 'string' ('' escaped; backslash escapes in E'...' and in MySQL)
@@ -123,26 +139,38 @@ function skipProtected(
     const escapeString =
       (prev === "E" || prev === "e") &&
       !(sql[i - 2] && IDENT_PART.test(sql[i - 2]!))
-    return skipQuoted(sql, i, "'", escapeString || dialect === "mysql")
+    return quoted(sql, i, "'", escapeString || dialect === "mysql")
   }
 
-  // "quoted identifier" ("" escaped) and `backtick identifier`
-  if (ch === '"' || ch === "`") return skipQuoted(sql, i, ch, false)
+  // "quoted identifier" ("" escaped; a backslash-escaped string in MySQL)
+  // and `backtick identifier`
+  if (ch === '"') return quoted(sql, i, ch, dialect === "mysql")
+  if (ch === "`") return quoted(sql, i, ch, false)
 
   // $$ ... $$ and $tag$ ... $tag$
   if (ch === "$" && dialect === "postgres") {
     const tag = dollarTag(sql, i)
     if (tag) {
       const close = sql.indexOf(tag, i + tag.length)
-      return close === -1 ? sql.length : close + tag.length
+      return close === -1
+        ? { end: sql.length, closed: false }
+        : { end: close + tag.length, closed: true }
     }
   }
 
   // [bracket identifier] in SQL Server (but not the [[ optional marker)
   if (ch === "[" && next !== "[" && dialect === "mssql") {
-    return skipQuoted(sql, i, "]", false)
+    return quoted(sql, i, "]", false)
   }
   return null
+}
+
+function skipProtected(
+  sql: string,
+  i: number,
+  dialect: SqlDialect
+): number | null {
+  return scanProtected(sql, i, dialect)?.end ?? null
 }
 
 export function tokenize(
@@ -401,11 +429,49 @@ const MSSQL_FORBIDDEN = new Set([
   "openquery",
 ])
 
+/**
+ * Refuses text whose comments, strings or quoted identifiers never close:
+ * the server would reject or read them differently, and the validators
+ * below must see exactly what the server will run.
+ */
+function assertTerminated(sql: string, dialect: SqlDialect) {
+  let i = 0
+  while (i < sql.length) {
+    const region = scanProtected(sql, i, dialect)
+    if (!region) {
+      i++
+      continue
+    }
+    if (!region.closed) {
+      throw new SqlParamError(
+        "Há um comentário, texto entre aspas ou identificador sem fechamento.",
+        i
+      )
+    }
+    if (dialect === "mysql") {
+      const body = sql.slice(i, region.end)
+      // /*! ... */ and /*M! ... */ are executed by MySQL/MariaDB, and the
+      // SET_VAR hint changes session settings for the statement.
+      if (
+        /^\/\*M?!/.test(body) ||
+        (/^\/\*\+/.test(body) && /set_var/i.test(body))
+      ) {
+        throw new SqlParamError(
+          "Comentários executáveis (/*! */) e a dica SET_VAR não são permitidos.",
+          i
+        )
+      }
+    }
+    i = region.end
+  }
+}
+
 function assertDialectSafe(
   sql: string,
   dialect: SqlDialect,
   allowed: ReadonlySet<string> = new Set()
 ) {
+  assertTerminated(sql, dialect)
   if (dialect === "mssql") {
     const word = codeWords(sql, dialect).find(
       (w) => MSSQL_FORBIDDEN.has(w) && !allowed.has(w)

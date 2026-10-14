@@ -133,6 +133,18 @@ export function translateMysqlError(error: unknown): DataSourceError {
  * read-only transaction, statement timeout, streaming read until N+1 rows and
  * cancellation with `KILL QUERY` from another connection.
  */
+/** sql_mode values that change how quotes and backslashes are lexed. */
+const UNSAFE_SQL_MODES = new Set([
+  "ANSI_QUOTES",
+  "NO_BACKSLASH_ESCAPES",
+  "ANSI",
+  "DB2",
+  "MAXDB",
+  "MSSQL",
+  "ORACLE",
+  "POSTGRESQL",
+])
+
 export class MysqlAdapter implements DataSourceAdapter {
   readonly dialect = "mysql" as const
   readonly placeholderStyle = "question" as const
@@ -200,6 +212,29 @@ export class MysqlAdapter implements DataSourceAdapter {
    * variables (@x) and GET_LOCK locks survive ROLLBACK and would leak to the
    * next user of the pool.
    */
+  /**
+   * The statement validator reads "..." as a string and honours backslash
+   * escapes, as MySQL does by default. ANSI_QUOTES, NO_BACKSLASH_ESCAPES (or
+   * a combination mode that includes them) would make the server read the
+   * text differently, so they are dropped for the session.
+   */
+  private async enforceSqlMode(connection: PoolConnection) {
+    const [row] = (await this.run(
+      connection,
+      "SELECT @@SESSION.sql_mode AS m"
+    )) as { m?: string }[]
+    const modes = String(row?.m ?? "")
+      .split(",")
+      .filter(Boolean)
+    const safe = modes.filter((mode) => !UNSAFE_SQL_MODES.has(mode))
+    if (safe.length === modes.length) return
+    const value = safe.join(",")
+    if (!/^[A-Z0-9_,]*$/.test(value)) {
+      throw new Error("sql_mode inesperado no servidor MySQL.")
+    }
+    await this.run(connection, `SET SESSION sql_mode = '${value}'`)
+  }
+
   private resetSession(connection: PoolConnection) {
     return new Promise<void>((resolve, reject) =>
       connection.reset((error) => (error ? reject(error) : resolve()))
@@ -238,6 +273,7 @@ export class MysqlAdapter implements DataSourceAdapter {
     try {
       onConnection?.(connection)
       const flavor = await this.detectFlavor(connection)
+      await this.enforceSqlMode(connection)
       const ms = clampMs(timeoutMs)
       // Integers we control, never user text. The server limit is a
       // backstop one second after the client timer: MySQL ends an
@@ -423,6 +459,7 @@ export class MysqlAdapter implements DataSourceAdapter {
       killing = this.kill(connection.threadId).catch(() => undefined)
     }, ms)
     try {
+      await this.enforceSqlMode(connection)
       // Integer we control, never user text.
       await this.run(
         connection,
