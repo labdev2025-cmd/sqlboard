@@ -3,10 +3,13 @@ import type { ParamDefinition, ParamType } from "./types"
 
 const NAME_RULES: [RegExp, ParamType][] = [
   [
+    /(_at$|data_?hora|dt_?hora|datetime|timestamp|horario|momento)/i,
+    "datetime",
+  ],
+  [
     /(^|_)(dt|data|date|dia|inicio|fim|desde)(_|$)|_(em|on)$|^(de|ate)$/i,
     "date",
   ],
-  [/(_at$|datahora|timestamp|horario)/i, "datetime"],
   [/(^|_)(ids|status_list|lista)$/i, "multi"],
   [
     /(^|_)(id|qtd|quantidade|limite|limit|ano|mes|top|n|offset|pagina)(_|$)/i,
@@ -39,10 +42,53 @@ export function inferParamType(
       return "integer"
     }
   }
+  const byName = typeFromName(name)
+  if (byName) return byName
+  // Compared with a column: the column name tells the type
+  // (`data_pedido >= :desde`, `valor BETWEEN :a AND :b`).
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]!
+    if (token.kind !== "param" || token.name !== name) continue
+    const before = tokens[i - 1]
+    const text = before?.kind === "text" ? before.value : ""
+    const column =
+      /([A-Za-z_][A-Za-z0-9_]*)["`\]]?\s*(=|<>|!=|<=|>=|<|>)\s*$/.exec(
+        text
+      )?.[1] ??
+      /([A-Za-z_][A-Za-z0-9_]*)["`\]]?\s+between\s*$/i.exec(text)?.[1] ??
+      betweenUpperBound(tokens, i)
+    const byColumn = column ? typeFromName(column) : null
+    if (byColumn && byColumn !== "multi") return byColumn
+  }
+  return "text"
+}
+
+function typeFromName(name: string): ParamType | null {
   for (const [pattern, type] of NAME_RULES) {
     if (pattern.test(name)) return type
   }
-  return "text"
+  return null
+}
+
+/** `col BETWEEN :a AND :b`: the column of the upper bound `:b`. */
+function betweenUpperBound(
+  tokens: ReturnType<typeof tokenize>,
+  index: number
+): string | undefined {
+  const and = tokens[index - 1]
+  const lower = tokens[index - 2]
+  const between = tokens[index - 3]
+  if (
+    and?.kind !== "text" ||
+    !/^\s*and\s*$/i.test(and.value) ||
+    lower?.kind !== "param" ||
+    between?.kind !== "text"
+  ) {
+    return undefined
+  }
+  return /([A-Za-z_][A-Za-z0-9_]*)["`\]]?\s+between\s*$/i.exec(
+    between.value
+  )?.[1]
 }
 
 /**

@@ -257,6 +257,39 @@ describe("inferência de tipo", () => {
     )
   })
 
+  it("reconhece data e hora antes de data", () => {
+    expect(inferParamType("criado_at", "select :criado_at")).toBe("datetime")
+    expect(inferParamType("data_hora", "select :data_hora")).toBe("datetime")
+    expect(inferParamType("dt_hora_fim", "select :dt_hora_fim")).toBe(
+      "datetime"
+    )
+    expect(inferParamType("data_fim", "select :data_fim")).toBe("date")
+  })
+
+  it("usa a coluna comparada quando o nome do parâmetro não diz o tipo", () => {
+    expect(
+      inferParamType(
+        "desde_q",
+        "select * from p where p.data_pedido >= :desde_q"
+      )
+    ).toBe("date")
+    expect(inferParamType("x", "select * from p where valor_total > :x")).toBe(
+      "number"
+    )
+    expect(
+      inferParamType("a", "select * from p where criado_at between :a and :b")
+    ).toBe("datetime")
+    expect(
+      inferParamType("b", "select * from p where criado_at between :a and :b")
+    ).toBe("datetime")
+    expect(inferParamType("q", 'select * from p where "cliente_id" = :q')).toBe(
+      "integer"
+    )
+    expect(inferParamType("termo", "select * from p where nome = :termo")).toBe(
+      "text"
+    )
+  })
+
   it("sincroniza definições preservando ajustes do usuário", () => {
     const synced = syncParams("select :a [[ where b = :b ]]", [
       { name: "a", type: "integer", required: false, label: "A" },
