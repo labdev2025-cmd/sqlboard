@@ -3,8 +3,10 @@ import { z } from "zod"
 import { paramDefinitionSchema } from "@/lib/sql-params/types"
 
 export const rawValueSchema = z.union([
-  z.string(),
-  z.array(z.string()),
+  z.string().max(100_000),
+  // Lists become one placeholder per item on most databases (SQL Server
+  // accepts at most 2,100 parameters per statement).
+  z.array(z.string().max(10_000)).max(1000),
   z.number(),
   z.boolean(),
   z.null(),

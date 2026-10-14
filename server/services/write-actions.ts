@@ -24,7 +24,12 @@ import {
 } from "@/lib/sql-params"
 import type { CurrentUser } from "@/server/auth/session"
 import { db } from "@/server/db/client"
-import { connections, queryExecutions, writeActions } from "@/server/db/schema"
+import {
+  connections,
+  queryExecutions,
+  settings,
+  writeActions,
+} from "@/server/db/schema"
 import { adapterFor } from "@/server/datasources/registry"
 import { DataSourceError } from "@/server/datasources/types"
 import { env } from "@/server/env"
@@ -251,6 +256,16 @@ function checkToken(
   }
 }
 
+/** Same "mask parameters in the audit" setting as the read executions. */
+async function auditParams(params: Record<string, unknown>) {
+  const [row] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, "audit.maskParams"))
+  if (!row?.value) return params
+  return Object.fromEntries(Object.keys(params).map((key) => [key, "***"]))
+}
+
 async function audit(
   user: CurrentUser,
   action: ActionRow,
@@ -270,7 +285,7 @@ async function audit(
       queryName: action.name,
       source: "action",
       sqlHash: sqlHash(action.sql),
-      params: compiled?.params ?? {},
+      params: await auditParams(compiled?.params ?? {}),
       ...entry,
     })
     .catch((error) => console.error("[audit]", error))

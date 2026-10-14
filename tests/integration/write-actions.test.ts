@@ -13,6 +13,7 @@ import { SqliteAdapter } from "@/server/datasources/sqlite"
 import { HttpError } from "@/server/http"
 import {
   createConnection,
+  getConnectionRow,
   setAccess,
   updateConnection,
 } from "@/server/services/connections"
@@ -25,6 +26,7 @@ import {
   updateAction,
 } from "@/server/services/write-actions"
 import { executeQuery } from "@/server/execution/execute"
+import { setSetting } from "@/server/services/audit"
 
 import { demoConnectionInput, makeUser } from "../support/fixtures"
 import { TEST_ENV } from "../support/test-env"
@@ -295,6 +297,39 @@ describe("prévia, confirmação e gravação", () => {
       password: undefined,
       purpose: "write",
     })
+  })
+
+  it("mascara parâmetros na auditoria quando configurado (leitura e escrita)", async () => {
+    await setSetting("audit.maskParams", true)
+    try {
+      const subject = `Mascarado ${Date.now()}`
+      const values = { cliente_id: "6", assunto: subject }
+      const preview = await previewAction(operator, insertId, { values })
+      await runAction(operator, insertId, {
+        values,
+        previewToken: preview.previewToken,
+      })
+      const read = await executeQuery({
+        user: admin,
+        connection: await getConnectionRow(readConnectionId),
+        sql: "select count(*) from loja.clientes where uf = :uf",
+        values: { uf: "CE" },
+        source: "editor",
+      })
+      const rows = await db
+        .select()
+        .from(queryExecutions)
+        .orderBy(desc(queryExecutions.createdAt))
+        .limit(5)
+      const write = rows.find((r) => r.source === "action")!
+      expect(write.params).toEqual({ cliente_id: "***", assunto: "***" })
+      const editor = rows.find((r) => r.connectionId === readConnectionId)!
+      expect(editor.params).toEqual({ uf: "***" })
+      expect(read.rowCount).toBe(1)
+      expect(JSON.stringify(rows)).not.toContain(subject)
+    } finally {
+      await setSetting("audit.maskParams", false)
+    }
   })
 
   it("admin edita e exclui", async () => {
