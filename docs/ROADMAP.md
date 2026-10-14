@@ -121,10 +121,10 @@ Critérios de aceite:
 
 ## F6 — Avançado
 
-**Status:** pendente
+**Status:** em andamento
 
 Entregas (implemente na ordem; cada uma com as mesmas exigências de segurança e testes das fases anteriores):
-- [ ] Agendamento de queries/telas com envio por e-mail (CSV/PDF).
+- [x] Agendamento de queries/telas com envio por e-mail (CSV/PDF).
 - [ ] Ações com escrita controlada: formulários com INSERT/UPDATE explícitos, conexão separada de escrita, prévia, confirmação, transação e auditoria.
 - [ ] Import/export de apps em JSON (e versionamento em git).
 - [ ] Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.

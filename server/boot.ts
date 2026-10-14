@@ -15,4 +15,6 @@ export async function onServerStart() {
     })
     console.log("[sqlboard] migrações aplicadas")
   }
+  const { startScheduler } = await import("@/server/services/schedules")
+  startScheduler()
 }

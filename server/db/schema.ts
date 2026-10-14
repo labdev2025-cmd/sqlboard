@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -316,35 +317,46 @@ export const settings = pgTable("settings", {
     .defaultNow(),
 })
 
-export const schedules = pgTable("schedules", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  ownerId: text("owner_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  savedQueryId: uuid("saved_query_id")
-    .notNull()
-    .references(() => savedQueries.id, { onDelete: "cascade" }),
-  params: jsonb("params").notNull().default({}),
-  /** Interval in minutes (simple and predictable). */
-  intervalMinutes: integer("interval_minutes").notNull().default(1440),
-  recipients: text("recipients")
-    .array()
-    .notNull()
-    .default(sql`'{}'::text[]`),
-  format: text("format").notNull().default("csv"),
-  enabled: boolean("enabled").notNull().default(true),
-  nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
-  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
-  lastStatus: text("last_status"),
-  lastError: text("last_error"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-})
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Target: a saved query or a published screen (exactly one is set). */
+    savedQueryId: uuid("saved_query_id").references(() => savedQueries.id, {
+      onDelete: "cascade",
+    }),
+    appId: uuid("app_id").references(() => apps.id, { onDelete: "cascade" }),
+    params: jsonb("params").notNull().default({}),
+    /** Interval in minutes (simple and predictable). */
+    intervalMinutes: integer("interval_minutes").notNull().default(1440),
+    recipients: text("recipients")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    format: text("format").notNull().default("csv"),
+    enabled: boolean("enabled").notNull().default(true),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    lastStatus: text("last_status"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  () => [
+    check(
+      "schedules_target_check",
+      sql`num_nonnulls(saved_query_id, app_id) = 1`
+    ),
+  ]
+)
 
 export const writeActions = pgTable("write_actions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -355,6 +367,8 @@ export const writeActions = pgTable("write_actions", {
     .references(() => connections.id, { onDelete: "cascade" }),
   sql: text("sql").notNull(),
   params: jsonb("params").notNull().default([]),
+  /** The transaction is rolled back when more rows than this are affected. */
+  maxAffectedRows: integer("max_affected_rows").notNull().default(1),
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
