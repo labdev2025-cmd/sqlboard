@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/toast"
 import type { AppDocument, Page, Widget } from "@/lib/app-schema"
 import type { RawParamValues } from "@/lib/sql-params/types"
+import { stackedLayout } from "@/lib/widgets/layout"
 
 import { downloadExport } from "./export"
 import { useAppRuntime, type RuntimeMode } from "./use-app-runtime"
@@ -68,25 +69,6 @@ function writeUrl(
     else url.searchParams.set(`${PARAM_PREFIX}${name}`, String(value))
   }
   window.history.replaceState(null, "", url)
-}
-
-/** Reading order for the stacked mobile layout: y, then x. */
-export function stackedLayout(widgets: Widget[]) {
-  let y = 0
-  return [...widgets]
-    .sort((a, b) => a.grid.y - b.grid.y || a.grid.x - b.grid.x)
-    .map((widget) => {
-      const item = {
-        i: widget.id,
-        x: 0,
-        y,
-        w: 1,
-        h: Math.max(widget.grid.h, 2),
-        static: true,
-      }
-      y += item.h
-      return item
-    })
 }
 
 export function PageGrid({

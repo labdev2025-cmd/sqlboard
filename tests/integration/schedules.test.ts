@@ -206,6 +206,10 @@ describe("agendamentos", () => {
     expect(mail.attachments.map((a) => a.contentType)).toEqual([
       "application/pdf",
     ])
+    const [pdf] = mail.attachments
+    expect(pdf!.filename).toMatch(/\.pdf$/)
+    expect(pdf!.content.subarray(0, 5).toString("latin1")).toBe("%PDF-")
+    expect(pdf!.content.length).toBeGreaterThan(1000)
     // The click-driven query cannot run unattended and is reported.
     expect(mail.text).toContain("Não incluídas")
     expect(mail.text).toContain("detalhe")

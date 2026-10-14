@@ -84,6 +84,51 @@ describe("execução segura no SQLite", () => {
     await expect(promise).rejects.toMatchObject({ code: "cancelled" })
   })
 
+  it("expande lista (multi) em IN (:ufs) com um ? por item", async () => {
+    const params = [{ name: "ufs", type: "multi" as const, required: false }]
+    const compile = (sql: string, ufs: string[]) =>
+      compileSql(sql, { ufs }, { dialect: "sqlite", params })
+    const inList = compile(
+      "select uf, count(*) as n from clientes where uf in (:ufs) group by uf order by uf",
+      ["SP", "CE"]
+    )
+    expect(inList.sql).toContain("in (?, ?)")
+    const opts = { maxRows: 100, timeoutMs: 10_000 }
+    const result = await adapter().execute(inList, opts)
+    expect(result.rows.map((row) => row[0])).toEqual(["CE", "SP"])
+
+    const notIn = await adapter().execute(
+      compile(
+        "select distinct uf from clientes where uf not in (:ufs) order by uf",
+        ["SP", "CE"]
+      ),
+      opts
+    )
+    expect(notIn.rows.map((row) => row[0])).toEqual(["MG", "RJ"])
+
+    // Each item stays a bound value, never SQL.
+    const injected = await adapter().execute(
+      compile("select count(*) from clientes where uf in (:ufs)", [
+        "CE' or '1'='1",
+      ]),
+      opts
+    )
+    expect(injected.rows[0]![0]).toBe(0)
+  })
+
+  it("EXPLAIN QUERY PLAN devolve o plano", async () => {
+    const { plan } = await adapter().explain(
+      compileSql(
+        "select * from pedidos where id = :id",
+        { id: "1" },
+        { dialect: "sqlite" }
+      ),
+      { timeoutMs: 10_000 }
+    )
+    expect(plan.length).toBeGreaterThan(0)
+    expect(plan).toContain("pedidos")
+  })
+
   it("introspecta e restringe o diretório dos arquivos", async () => {
     const schema = await adapter().introspect()
     expect(schema.serverVersion).toMatch(/^SQLite 3/)

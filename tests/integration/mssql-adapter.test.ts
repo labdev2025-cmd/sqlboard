@@ -147,6 +147,45 @@ describe.skipIf(!host)("execução segura no SQL Server", () => {
     expect(after.rows[0]![0]).toBe(200)
   })
 
+  it("expande lista (multi) em IN (:ufs) com um @pN por item", async () => {
+    const params = [{ name: "ufs", type: "multi" as const, required: false }]
+    const compile = (sql: string, ufs: string[]) =>
+      compileSql(sql, { ufs }, { dialect: "mssql", params })
+    const inList = compile(
+      "select uf, count(*) as n from dbo.clientes where uf in (:ufs) group by uf order by uf",
+      ["SP", "CE"]
+    )
+    expect(inList.sql).toContain("in (@p1, @p2)")
+    expect(inList.values).toEqual(["SP", "CE"])
+    const opts = { maxRows: 100, timeoutMs: 10_000 }
+    const result = await ro.execute(inList, opts)
+    expect(result.rows.map((row) => row[0])).toEqual(["CE", "SP"])
+
+    const notIn = await ro.execute(
+      compile(
+        "select distinct uf from dbo.clientes where uf not in (:ufs) order by uf",
+        ["SP", "CE"]
+      ),
+      opts
+    )
+    expect(notIn.rows.map((row) => row[0])).toEqual(["MG", "RJ"])
+
+    // Each item stays a bound value, never SQL.
+    const injected = await ro.execute(
+      compile("select count(*) as n from dbo.clientes where uf in (:ufs)", [
+        "CE' or '1'='1",
+      ]),
+      opts
+    )
+    expect(injected.rows[0]![0]).toBe(0)
+  })
+
+  it("EXPLAIN não é oferecido no SQL Server (erro em pt-BR)", async () => {
+    await expect(ro.explain()).rejects.toThrow(
+      /não está disponível para SQL Server/
+    )
+  })
+
   it("introspecta", async () => {
     const schema = await ro.introspect()
     expect(schema.serverVersion).toMatch(/^SQL Server/)

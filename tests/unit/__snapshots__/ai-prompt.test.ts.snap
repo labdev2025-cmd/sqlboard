@@ -1,5 +1,50 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`prompt de IA > caso completo: cláusulas opcionais, parâmetros, índices e plano (snapshot) 1`] = `
+"Você é especialista em SQL e otimização de consultas.
+Melhore a query PostgreSQL abaixo em desempenho, legibilidade e correção, SEM mudar o resultado:
+- mesmas colunas, com os mesmos nomes/aliases e na mesma ordem;
+- mesmas linhas (mesmo conjunto de dados e mesma ordenação, se houver ORDER BY);
+- mantenha o dialeto PostgreSQL;
+- mantenha EXATAMENTE os mesmos parâmetros (\`:nome\` ou \`{{nome}}\`), sem trocar por valores;
+- mantenha as cláusulas opcionais \`[[ ... ]]\` (o trecho some quando o parâmetro está vazio);
+- um único comando, somente leitura (SELECT/WITH), sem ponto e vírgula separando comandos.
+Responda SOMENTE com a query final dentro de um bloco \`\`\`sql\`\`\`, sem explicações.
+
+# Contexto
+
+Banco: PostgreSQL 16.4
+
+## Tabelas e views referenciadas
+
+### Tabela loja.pedidos — Pedidos
+Colunas:
+- id integer NOT NULL (chave primária)
+- data_pedido timestamp with time zone NOT NULL
+Chaves estrangeiras:
+- (cliente_id) → loja.clientes(id)
+Índices:
+- CREATE INDEX pedidos_data_idx ON loja.pedidos USING btree (data_pedido)
+
+## Parâmetros
+- :inicio — Data, obrigatório
+- :status — Texto, dentro de cláusula opcional [[ ]]
+
+## Última execução
+Tempo: 1234 ms · Linhas: 5000 (resultado truncado pelo limite de linhas)
+
+## Plano de execução (EXPLAIN, sem ANALYZE)
+\`\`\`
+Index Scan using pedidos_data_idx on pedidos  (cost=0.29..8.31 rows=1 width=4)
+\`\`\`
+
+# Query
+\`\`\`sql
+select id from loja.pedidos where data_pedido >= :inicio [[ and status = :status ]]
+\`\`\`
+"
+`;
+
 exports[`prompt de IA > trata casos sem índices e sem parâmetros (snapshot) 1`] = `
 "Você é especialista em SQL e otimização de consultas.
 Melhore a query PostgreSQL abaixo em desempenho, legibilidade e correção, SEM mudar o resultado:

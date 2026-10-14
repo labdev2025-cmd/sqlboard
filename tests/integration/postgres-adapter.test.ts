@@ -1,7 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest"
 
 import { compileSql } from "@/lib/sql-params"
-import { PostgresAdapter } from "@/server/datasources/postgres"
+import {
+  PostgresAdapter,
+  translatePgError,
+} from "@/server/datasources/postgres"
 import { DataSourceError } from "@/server/datasources/types"
 
 import { demoConfig, ownerConfig } from "../support/demo"
@@ -185,6 +188,40 @@ describe("execução segura no PostgreSQL", () => {
       timeoutMs: 2000,
     })
     expect(plan.plan).toMatch(/Result/)
+  })
+
+  it("traduz erro de sintaxe, tabela e coluna inexistentes para pt-BR", async () => {
+    const failure = (sql: string) =>
+      run(ro, sql).then(
+        () => {
+          throw new Error("a query deveria falhar")
+        },
+        (error: unknown) => error as DataSourceError
+      )
+
+    const syntax = await failure("select id fro loja.pedidos")
+    expect(syntax).toBeInstanceOf(DataSourceError)
+    expect(syntax.code).toBe("query")
+    expect(syntax.message).toMatch(/^Erro de sintaxe: /)
+    expect(syntax.detail).toMatch(/syntax error/)
+
+    const table = await failure("select * from loja.nao_existe")
+    expect(table.code).toBe("query")
+    expect(table.message).toMatch(/^Tabela ou view inexistente: /)
+    expect(table.message).toContain("loja.nao_existe")
+
+    const column = await failure("select coluna_fantasma from loja.pedidos")
+    expect(column.message).toMatch(/^Coluna inexistente: /)
+
+    expect(
+      translatePgError({
+        code: "42601",
+        message: "cannot insert multiple commands into a prepared statement",
+      }).message
+    ).toBe("Envie um único comando por vez.")
+
+    // The pool keeps working after the errors (transaction rolled back).
+    expect((await run(ro, "select 1 as ok")).rows[0]![0]).toBe(1)
   })
 
   it("traduz falha de conexão", async () => {

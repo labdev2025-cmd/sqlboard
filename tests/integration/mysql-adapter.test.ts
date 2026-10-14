@@ -175,6 +175,51 @@ describe.skipIf(!available)("execução segura no MySQL/MariaDB", () => {
     ).rejects.toThrow()
   })
 
+  it("expande lista (multi) em IN (:ufs) com um ? por item", async () => {
+    const params = [{ name: "ufs", type: "multi" as const, required: false }]
+    const compile = (sql: string, ufs: string[]) =>
+      compileSql(sql, { ufs }, { dialect: "mysql", params })
+    const inList = compile(
+      "select uf, count(*) as n from clientes where uf in (:ufs) group by uf order by uf",
+      ["SP", "CE"]
+    )
+    expect(inList.sql).toContain("in (?, ?)")
+    expect(inList.values).toEqual(["SP", "CE"])
+    const result = await ro.execute(inList, { maxRows: 100, timeoutMs: 10_000 })
+    expect(result.rows.map((row) => row[0])).toEqual(["CE", "SP"])
+
+    const notIn = await ro.execute(
+      compile(
+        "select distinct uf from clientes where uf not in (:ufs) order by uf",
+        ["SP", "CE"]
+      ),
+      { maxRows: 100, timeoutMs: 10_000 }
+    )
+    expect(notIn.rows.map((row) => row[0])).toEqual(["MG", "RJ"])
+
+    // Each item stays a bound value, never SQL.
+    const injected = await ro.execute(
+      compile("select count(*) from clientes where uf in (:ufs)", [
+        "CE' or '1'='1",
+      ]),
+      { maxRows: 100, timeoutMs: 10_000 }
+    )
+    expect(Number(injected.rows[0]![0])).toBe(0)
+  })
+
+  it("EXPLAIN devolve o plano", async () => {
+    const { plan } = await ro.explain(
+      compileSql(
+        "select * from pedidos where id = :id",
+        { id: "1" },
+        { dialect: "mysql" }
+      ),
+      { timeoutMs: 10_000 }
+    )
+    expect(plan.length).toBeGreaterThan(0)
+    expect(plan).toContain("pedidos")
+  })
+
   it("introspecta tabelas, chaves e índices", async () => {
     const schema = await ro.introspect()
     expect(schema.serverVersion).toMatch(/MariaDB|MySQL/)

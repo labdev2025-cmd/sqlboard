@@ -108,10 +108,100 @@ describe("prompt de IA", () => {
     expect(minimal).toContain("Seq Scan")
   })
 
-  it("nunca contém linhas de dados nem credenciais", () => {
-    const keys = Object.keys({ sql: 1, dialect: 1, context: 1, include: 1 })
-    expect(keys).not.toContain("rows")
-    expect(prompt).not.toMatch(/senha|password|host|localhost|5432/i)
+  it("nunca contém linhas de dados nem valores de parâmetros", () => {
+    // Even if a caller passes the whole result (with rows) as lastRun, or
+    // the current parameter values, only the metrics reach the prompt.
+    const lastRun = {
+      durationMs: 42,
+      rowCount: 2,
+      truncated: false,
+      columns: [{ name: "cpf", kind: "text", nativeType: "text" }],
+      rows: [["111.222.333-44"], ["Maria Exemplar"]],
+    }
+    const text = buildAiPrompt({
+      sql: SQL,
+      dialect: "postgres",
+      context: {
+        tables: [pedidos],
+        lastRun,
+        values: { inicio: "2026-02-03", status: "segredo-do-filtro" },
+      } as Parameters<typeof buildAiPrompt>[0]["context"],
+      include: { plan: true },
+    })
+    expect(text).toContain("Tempo: 42 ms · Linhas: 2")
+    expect(text).not.toContain("111.222.333-44")
+    expect(text).not.toContain("Maria Exemplar")
+    expect(text).not.toContain("cpf")
+    expect(text).not.toContain("2026-02-03")
+    expect(text).not.toContain("segredo-do-filtro")
+  })
+
+  it("não vaza nome da conexão, host nem credenciais do contexto da tela", () => {
+    // What the editor has at hand: the connection view, the introspected
+    // schema (with unreferenced tables) and the parameters.
+    const connection = {
+      name: "Conexão Produção Financeiro",
+      host: "db-interno.exemplo.test",
+      port: 6543,
+      username: "usuario_relatorios",
+      password: "Senha#Super$ecreta",
+    }
+    const schema = {
+      serverVersion: "PostgreSQL 16.4",
+      introspectedAt: "2026-10-14T12:00:00Z",
+      tables: [
+        pedidos,
+        {
+          ...semIndice,
+          name: "credenciais",
+          comment: `Acesso a ${connection.host} com ${connection.password}`,
+        },
+      ],
+    }
+    const text = buildAiPrompt({
+      sql: SQL,
+      dialect: "postgres",
+      context: {
+        ...connection,
+        serverVersion: schema.serverVersion,
+        tables: referencedTables(SQL, schema.tables, "postgres"),
+        params: [{ name: "inicio", type: "date", required: true }],
+        connection,
+      } as Parameters<typeof buildAiPrompt>[0]["context"],
+      include: { plan: true },
+    })
+    expect(text).toContain("### Tabela loja.pedidos")
+    expect(text).not.toContain("credenciais")
+    for (const secret of [
+      connection.name,
+      connection.host,
+      String(connection.port),
+      connection.username,
+      connection.password,
+    ]) {
+      expect(text).not.toContain(secret)
+    }
+  })
+
+  it("caso completo: cláusulas opcionais, parâmetros, índices e plano (snapshot)", () => {
+    const text = buildAiPrompt({
+      sql: SQL,
+      dialect: "postgres",
+      context: {
+        serverVersion: "PostgreSQL 16.4",
+        tables: [pedidos],
+        params: [
+          { name: "inicio", type: "date", required: true },
+          { name: "status", type: "text", required: false },
+        ],
+        lastRun: { durationMs: 1234, rowCount: 5000, truncated: true },
+        plan: "Index Scan using pedidos_data_idx on pedidos  (cost=0.29..8.31 rows=1 width=4)",
+      },
+      include: { plan: true },
+    })
+    expect(text).toContain("(resultado truncado pelo limite de linhas)")
+    expect(text).toContain("## Plano de execução (EXPLAIN, sem ANALYZE)")
+    expect(text).toMatchSnapshot()
   })
 
   it("trata casos sem índices e sem parâmetros (snapshot)", () => {

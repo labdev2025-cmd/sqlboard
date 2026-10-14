@@ -13,7 +13,7 @@ type Entry = { result: QueryResult; expiresAt: number; size: number }
  * so a permission check always happens before a lookup and edits invalidate it.
  * Bounded by an approximate byte budget (oldest entries evicted first).
  */
-class ResultCache {
+export class ResultCache {
   private entries = new Map<string, Entry>()
   private bytes = 0
 
