@@ -6,6 +6,7 @@ Leia as entradas relacionadas à tarefa. Os detalhes ficam em `docs/learning/`.
 - [Cancelamento atrasado atinge a próxima query do pool](docs/learning/bug-kill-atrasado-pool.md) — espere o KILL/cancel antes de devolver a conexão.
 - [Rollback no SQL Server com request ativo](docs/learning/bug-mssql-rollback-com-request-ativo.md) — decida no evento "done"; senão a conexão vaza e o close() trava.
 - [Validador de SQL precisa ler comentários e aspas como cada banco](docs/learning/bug-tokenizador-comentarios-por-banco.md) — SQL Server aninha /* */; MySQL executa /*! */ e exige espaço após --.
+- [Ordenar int8/numeric como number perde precisão](docs/learning/bug-ordenacao-int8-precisao.md) — compare o texto decimal; Number() iguala valores acima de 2^53.
 - [Worker do SQLite não acha o driver no build](docs/learning/bug-sqlite-worker-modulo-bundler.md) — require.resolve vira id do bundler; resolver dentro do código do worker.
 
 ## Pegadinhas de ambiente, dependências e bibliotecas
