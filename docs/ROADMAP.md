@@ -88,17 +88,17 @@ Critérios de aceite:
 
 ## F4 — Interatividade, versões e compartilhamento
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14. Cache de resultado é em memória por processo (um container); várias réplicas exigiriam cache compartilhado.
 
 Entregas:
-- [ ] Várias queries e várias páginas por app; `runMode` automático/manual.
-- [ ] Bindings `{{query.data}}`, `{{widget.value}}` em propriedades (avaliador seguro e restrito, sem `eval`); clique numa linha/barra alimenta parâmetro de outra query.
-- [ ] Cláusulas opcionais `[[ ... ]]`.
-- [ ] Parâmetro `list`/`multi` com opções vindas de outra query.
-- [ ] Export CSV e XLSX do resultado (respeitando permissões e limites).
-- [ ] Cache de resultado com TTL por query.
-- [ ] Versões: publicar rascunho, histórico, restaurar; compartilhar app com usuários (ver/editar).
-- [ ] Migração de `schemaVersion` se o formato mudar (com teste).
+- [x] Várias queries e várias páginas por app; `runMode` automático/manual.
+- [x] Bindings `{{query.data}}`, `{{widget.value}}` em propriedades (avaliador seguro e restrito, sem `eval`); clique numa linha/barra alimenta parâmetro de outra query.
+- [x] Cláusulas opcionais `[[ ... ]]`.
+- [x] Parâmetro `list`/`multi` com opções vindas de outra query.
+- [x] Export CSV e XLSX do resultado (respeitando permissões e limites).
+- [x] Cache de resultado com TTL por query.
+- [x] Versões: publicar rascunho, histórico, restaurar; compartilhar app com usuários (ver/editar).
+- [x] Migração de `schemaVersion` se o formato mudar (com teste).
 
 Critérios de aceite:
 - Testes do avaliador de bindings (inclusive tentativas de execução de código) e das cláusulas opcionais.
