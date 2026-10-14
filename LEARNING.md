@@ -5,8 +5,13 @@ Leia as entradas relacionadas à tarefa. Os detalhes ficam em `docs/learning/`.
 ## Bugs e soluções
 
 ## Pegadinhas de ambiente, dependências e bibliotecas
+- [Registry do shadcn bloqueado no sandbox](docs/learning/gotcha-shadcn-registry-bloqueado.md) — rode o site do shadcn local (GitHub) e use REGISTRY_URL.
+- [TypeScript 6 e ESLint 9 fixados](docs/learning/gotcha-versoes-typescript-eslint.md) — typescript-eslint exige TS < 6.1; eslint-plugin-react aceita ESLint ≤ 9.
+- [Rate limit do Better Auth no e2e](docs/learning/gotcha-better-auth-rate-limit-e2e.md) — logins seguidos viram 429; o e2e desliga com SQLBOARD_AUTH_RATE_LIMIT=off.
+- [Chromium do Playwright no sandbox](docs/learning/gotcha-playwright-chromium-sandbox.md) — use PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium.
 
 ## Decisões de arquitetura
+- [Estrutura sem src/ e API em Route Handlers](docs/learning/decision-estrutura-sem-src.md) — convenção do template shadcn; permissões centralizadas em server/http.ts e services.
 
 ## Abordagens que NÃO funcionaram
 

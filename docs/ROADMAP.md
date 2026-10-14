@@ -7,16 +7,16 @@ Status possíveis: `pendente`, `em andamento`, `concluída`. Marque cada entrega
 
 ## F0 — Fundação
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14. Pendência real: validação em navegadores além do Chromium e em aparelhos reais (ambiente só tem Chromium).
 
 Entregas:
-- [ ] Projeto Next.js (App Router, TypeScript estrito, pnpm) com shadcn/ui inicializado (`init -t next`), tema claro/escuro, fonte e tokens definidos.
-- [ ] Qualidade: ESLint, Prettier (ou o formatador que a CLI do Next/shadcn trouxer), `typecheck`, Vitest, Playwright + axe; scripts no `package.json`.
-- [ ] CI no GitHub Actions: install, lint, typecheck, testes com serviço Postgres, build, e2e.
-- [ ] Banco de metadados PostgreSQL com Drizzle e migrações; `compose.yaml` para dev; `scripts/dev-setup.sh` idempotente; `.env.example`.
-- [ ] Better Auth (e-mail + senha): primeiro usuário vira admin; depois, cadastro só por admin/convite. Papéis `admin`, `editor`, `viewer` verificados no servidor.
-- [ ] Layout da aplicação (Sidebar do shadcn, responsiva) com áreas vazias: Conexões, Queries, Apps, Administração; página de login; estados vazios.
-- [ ] `AGENTS.md` com comandos reais verificados; README com "como rodar".
+- [x] Projeto Next.js (App Router, TypeScript estrito, pnpm) com shadcn/ui inicializado (`init -t next`), tema claro/escuro, fonte e tokens definidos.
+- [x] Qualidade: ESLint, Prettier (ou o formatador que a CLI do Next/shadcn trouxer), `typecheck`, Vitest, Playwright + axe; scripts no `package.json`.
+- [x] CI no GitHub Actions: install, lint, typecheck, testes com serviço Postgres, build, e2e.
+- [x] Banco de metadados PostgreSQL com Drizzle e migrações; `compose.yaml` para dev; `scripts/dev-setup.sh` idempotente; `.env.example`.
+- [x] Better Auth (e-mail + senha): primeiro usuário vira admin; depois, cadastro só por admin/convite. Papéis `admin`, `editor`, `viewer` verificados no servidor.
+- [x] Layout da aplicação (Sidebar do shadcn, responsiva) com áreas vazias: Conexões, Queries, Apps, Administração; página de login; estados vazios.
+- [x] `AGENTS.md` com comandos reais verificados; README com "como rodar".
 
 Critérios de aceite:
 - `pnpm lint && pnpm typecheck && pnpm test && pnpm build` passam; CI verde no push.
