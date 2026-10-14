@@ -1,23 +1,30 @@
 import type { Metadata } from "next"
-import { ScrollTextIcon } from "lucide-react"
 
 import { PageBody, PageHeader } from "@/components/app-shell/page-header"
-import { EmptyState } from "@/components/app-shell/states"
+import { ForbiddenState } from "@/components/app-shell/states"
+import { AuditLog } from "@/features/admin/audit-log"
 import { requireUser } from "@/server/auth/session"
 
 export const metadata: Metadata = { title: "Auditoria" }
 
-export default async function Page() {
-  await requireUser()
+export default async function AuditPage() {
+  const user = await requireUser()
+  if (user.role !== "admin") {
+    return (
+      <>
+        <PageHeader title="Auditoria" />
+        <ForbiddenState />
+      </>
+    )
+  }
   return (
     <>
-      <PageHeader title="Auditoria" />
+      <PageHeader
+        title="Auditoria"
+        description="Quem executou o quê, quando e com qual resultado."
+      />
       <PageBody>
-        <EmptyState
-          icon={ScrollTextIcon}
-          title="Nenhuma execução registrada"
-          description="As execuções de queries aparecem aqui."
-        />
+        <AuditLog />
       </PageBody>
     </>
   )

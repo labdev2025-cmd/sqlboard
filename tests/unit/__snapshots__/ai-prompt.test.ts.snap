@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`prompt de IA > trata casos sem índices e sem parâmetros (snapshot) 1`] = `
+"Você é especialista em SQL e otimização de consultas.
+Melhore a query PostgreSQL abaixo em desempenho, legibilidade e correção, SEM mudar o resultado:
+- mesmas colunas, com os mesmos nomes/aliases e na mesma ordem;
+- mesmas linhas (mesmo conjunto de dados e mesma ordenação, se houver ORDER BY);
+- mantenha o dialeto PostgreSQL;
+- mantenha EXATAMENTE os mesmos parâmetros (\`:nome\` ou \`{{nome}}\`), sem trocar por valores;
+- mantenha as cláusulas opcionais \`[[ ... ]]\` (o trecho some quando o parâmetro está vazio);
+- um único comando, somente leitura (SELECT/WITH), sem ponto e vírgula separando comandos.
+Responda SOMENTE com a query final dentro de um bloco \`\`\`sql\`\`\`, sem explicações.
+
+# Contexto
+
+## Tabelas e views referenciadas
+
+### Tabela loja.categorias — Pedidos
+Colunas:
+- id integer NOT NULL (chave primária)
+- data_pedido timestamp with time zone NOT NULL
+Índices:
+- nenhum
+
+## Parâmetros
+A query não tem parâmetros.
+
+# Query
+\`\`\`sql
+select * from loja.categorias
+\`\`\`
+"
+`;

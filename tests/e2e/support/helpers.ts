@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright"
-import { expect, type Page } from "@playwright/test"
+import { expect, type Browser, type Page } from "@playwright/test"
 
 export const USERS = {
   admin: {
@@ -47,7 +47,9 @@ export async function expectAccessible(page: Page, exclude: string[] = []) {
     serious.map((v) => ({
       id: v.id,
       help: v.help,
-      nodes: v.nodes.slice(0, 3).map((n) => n.target.join(" ")),
+      nodes: v.nodes
+        .slice(0, 3)
+        .map((n) => `${n.target.join(" ")} — ${n.failureSummary ?? ""}`),
     }))
   ).toEqual([])
 }
@@ -67,4 +69,42 @@ export async function login(page: Page, key: UserKey) {
   await page.getByLabel("Senha").fill(user.password)
   await page.getByRole("button", { name: "Entrar" }).click()
   await expect(page).toHaveURL(/\/$/)
+}
+
+/** Gives an editor access to the seeded "Demo" connection (as admin, via API). */
+export async function grantDemo(
+  browser: Browser,
+  baseURL: string,
+  key: UserKey
+) {
+  const admin = await browser.newContext({
+    storageState: storageFor("admin"),
+    baseURL,
+  })
+  try {
+    const connections = (await (
+      await admin.request.get("/api/connections")
+    ).json()) as {
+      id: string
+      name: string
+    }[]
+    const demo = connections.find((c) => c.name === "Demo")!
+    const people = (await (await admin.request.get("/api/users")).json()) as {
+      id: string
+      email: string
+    }[]
+    const current = (await (
+      await admin.request.get(`/api/connections/${demo.id}/access`)
+    ).json()) as {
+      id: string
+    }[]
+    const target = people.find((p) => p.email === USERS[key].email)!
+    const ids = [...new Set([...current.map((p) => p.id), target.id])]
+    await admin.request.put(`/api/connections/${demo.id}/access`, {
+      data: { userIds: ids },
+    })
+    return demo.id
+  } finally {
+    await admin.close()
+  }
 }
