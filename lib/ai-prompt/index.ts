@@ -280,11 +280,29 @@ export function rowsFingerprint(rows: Cell[][]): string {
 
 /**
  * Compares two executions: same column names in the same order and the same
- * rows. When either side hit the row limit the verdict is inconclusive.
+ * rows (in the same order when the original has ORDER BY). When either side
+ * hit the row limit the verdict is inconclusive.
  */
+/** True when the statement ends with an ORDER BY at the top level. */
+export function hasTopLevelOrderBy(
+  sql: string,
+  dialect: SqlDialect = "postgres"
+): boolean {
+  const code = maskProtected(sql, dialect)
+  let depth = 0
+  let found = false
+  for (const match of code.matchAll(/[()]|\border\s+by\b/gi)) {
+    if (match[0] === "(") depth++
+    else if (match[0] === ")") depth = Math.max(0, depth - 1)
+    else if (depth === 0) found = true
+  }
+  return found
+}
+
 export function compareRuns(
   a: RunSummary,
-  b: RunSummary
+  b: RunSummary,
+  options: { ordered?: boolean } = {}
 ): {
   verdict: ComparisonVerdict
   reasons: string[]
@@ -303,6 +321,12 @@ export function compareRuns(
     )
   } else if (rowsFingerprint(a.rows) !== rowsFingerprint(b.rows)) {
     reasons.push("Os valores das linhas são diferentes.")
+  } else if (
+    options.ordered &&
+    a.rows.some((row, i) => JSON.stringify(row) !== JSON.stringify(b.rows[i]))
+  ) {
+    // The original has ORDER BY: the improved query must keep the order.
+    reasons.push("Mesmas linhas, mas em outra ordem.")
   }
   if (a.truncated || b.truncated) {
     return {

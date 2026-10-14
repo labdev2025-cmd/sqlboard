@@ -4,6 +4,7 @@ import {
   buildAiPrompt,
   checkImprovedQuery,
   compareRuns,
+  hasTopLevelOrderBy,
   extractSqlFromResponse,
   referencedTables,
 } from "@/lib/ai-prompt"
@@ -170,9 +171,22 @@ describe("resposta da IA", () => {
       { name: "a", kind: "integer" as const, nativeType: "int4" },
     ]
     const base = { columns, rows: [[1], [2]], truncated: false }
+    // Without ORDER BY the order does not matter; with it, it does.
     expect(compareRuns(base, { ...base, rows: [[2], [1]] }).verdict).toBe(
       "identical"
     )
+    const reordered = compareRuns(
+      base,
+      { ...base, rows: [[2], [1]] },
+      { ordered: true }
+    )
+    expect(reordered.verdict).toBe("different")
+    expect(reordered.reasons).toContain("Mesmas linhas, mas em outra ordem.")
+    expect(hasTopLevelOrderBy("select a from t order by a")).toBe(true)
+    expect(
+      hasTopLevelOrderBy("select * from (select a from t order by a) x")
+    ).toBe(false)
+    expect(hasTopLevelOrderBy("select 'order by' as x -- order by")).toBe(false)
     expect(compareRuns(base, { ...base, rows: [[1], [3]] }).verdict).toBe(
       "different"
     )

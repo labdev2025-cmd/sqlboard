@@ -45,6 +45,7 @@ import {
   buildAiPrompt,
   checkImprovedQuery,
   compareRuns,
+  hasTopLevelOrderBy,
   DEFAULT_INCLUDE,
   extractSqlFromResponse,
   referencedTables,
@@ -205,7 +206,9 @@ export function AiImproveDialog({
 
   const verdict =
     compare.status === "done"
-      ? compareRuns(compare.original, compare.improved)
+      ? compareRuns(compare.original, compare.improved, {
+          ordered: hasTopLevelOrderBy(sql, dialect),
+        })
       : null
 
   return (
