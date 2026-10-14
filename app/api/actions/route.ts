@@ -11,5 +11,5 @@ export const POST = route(
     Response.json(await createAction(user, await readJson(request)), {
       status: 201,
     }),
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

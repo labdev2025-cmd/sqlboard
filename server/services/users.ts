@@ -5,7 +5,7 @@ import { asc, count, eq } from "drizzle-orm"
 import { auth } from "@/server/auth/auth"
 import type { Role } from "@/lib/auth/roles"
 import { db } from "@/server/db/client"
-import { session, user } from "@/server/db/schema"
+import { apiTokens, session, user } from "@/server/db/schema"
 import { badRequest, notFound } from "@/server/http"
 
 export async function hasAnyUser(): Promise<boolean> {
@@ -86,6 +86,7 @@ export async function updateUserAccount(
     .where(eq(user.id, id))
   if (changes.disabled) {
     await db.delete(session).where(eq(session.userId, id))
+    await db.delete(apiTokens).where(eq(apiTokens.userId, id))
   }
 }
 
@@ -96,5 +97,8 @@ export async function resetUserPassword(id: string, password: string) {
   const ctx = await auth.$context
   const hash = await ctx.password.hash(password)
   await ctx.internalAdapter.updatePassword(id, hash)
+  // A reset usually means the account may be compromised: end sessions and
+  // revoke API tokens too.
   await db.delete(session).where(eq(session.userId, id))
+  await db.delete(apiTokens).where(eq(apiTokens.userId, id))
 }

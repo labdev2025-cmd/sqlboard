@@ -2,12 +2,48 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError, createAuthMiddleware } from "better-auth/api"
 import { nextCookies } from "better-auth/next-js"
-import { count, eq } from "drizzle-orm"
+import { count, eq, sql } from "drizzle-orm"
 
 import { db } from "@/server/db/client"
 import * as schema from "@/server/db/schema"
 
 import { ROLES } from "@/lib/auth/roles"
+
+function list(value: string | undefined) {
+  const items = (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return items.length ? items : undefined
+}
+
+/** Per-account limit (on top of the per-IP one): 20 attempts per 15 min. */
+const ACCOUNT_WINDOW_MS = 15 * 60_000
+const ACCOUNT_MAX_ATTEMPTS = 20
+
+async function attemptsForAccount(email: string) {
+  const now = Date.now()
+  const key = `account:${email.trim().toLowerCase()}`
+  const result = await db.execute<{ count: number }>(sql`
+    insert into rate_limit (id, key, count, last_request)
+    values (${crypto.randomUUID()}, ${key}, 1, ${now})
+    on conflict (key) do update set
+      count = case when rate_limit.last_request < ${now - ACCOUNT_WINDOW_MS}
+        then 1 else rate_limit.count + 1 end,
+      last_request = case when rate_limit.last_request < ${now - ACCOUNT_WINDOW_MS}
+        then ${now} else rate_limit.last_request end
+    returning count`)
+  return Number(result.rows[0]?.count ?? 0)
+}
+
+async function claimBootstrapAdmin() {
+  const claimed = await db
+    .insert(schema.settings)
+    .values({ key: "bootstrap.admin", value: new Date().toISOString() })
+    .onConflictDoNothing()
+    .returning({ key: schema.settings.key })
+  return claimed.length > 0
+}
 
 async function userCount() {
   const [row] = await db.select({ value: count() }).from(schema.user)
@@ -25,6 +61,7 @@ export const auth = betterAuth({
       session: schema.session,
       account: schema.account,
       verification: schema.verification,
+      rateLimit: schema.rateLimit,
     },
   }),
   emailAndPassword: {
@@ -52,11 +89,23 @@ export const auth = betterAuth({
     // Brute-force protection on auth endpoints; e2e runs disable it because
     // every test signs in from the same address.
     enabled: process.env.SQLBOARD_AUTH_RATE_LIMIT !== "off",
+    // In the metadata database: survives restarts and is shared by replicas.
+    storage: "database",
     window: 60,
     max: 100,
     customRules: {
       "/sign-in/email": { window: 60, max: 10 },
       "/sign-up/email": { window: 60, max: 5 },
+    },
+  },
+  advanced: {
+    ipAddress: {
+      // Header the reverse proxy sets (and overwrites) with the client IP,
+      // and the proxies allowed in a forwarded chain. See docs/DEPLOY.md.
+      ipAddressHeaders: list(process.env.SQLBOARD_IP_HEADERS) ?? [
+        "x-forwarded-for",
+      ],
+      trustedProxies: list(process.env.SQLBOARD_TRUSTED_PROXIES),
     },
   },
   session: {
@@ -69,7 +118,10 @@ export const auth = betterAuth({
         // The very first account becomes admin; every later one keeps the
         // role chosen by the admin who created it (default: viewer).
         before: async (data) => {
-          const first = (await userCount()) === 0
+          // Two simultaneous first sign-ups: only the one that claims the
+          // bootstrap marker (atomic insert) becomes admin.
+          const first =
+            (await userCount()) === 0 && (await claimBootstrapAdmin())
           const requested = (data as { role?: string }).role
           const role = first
             ? "admin"
@@ -101,6 +153,18 @@ export const auth = betterAuth({
     // Public sign-up only exists to create the first admin. Later accounts
     // are created by an admin (server/services/users.ts).
     before: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === "/sign-in/email" &&
+        process.env.SQLBOARD_AUTH_RATE_LIMIT !== "off"
+      ) {
+        const email = String((ctx.body as { email?: unknown })?.email ?? "")
+        if (email && (await attemptsForAccount(email)) > ACCOUNT_MAX_ATTEMPTS) {
+          throw new APIError("TOO_MANY_REQUESTS", {
+            message:
+              "Muitas tentativas para esta conta. Aguarde alguns minutos e tente de novo.",
+          })
+        }
+      }
       if (ctx.path === "/sign-up/email" && (await userCount()) > 0) {
         throw new APIError("FORBIDDEN", {
           message:

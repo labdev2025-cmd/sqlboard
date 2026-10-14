@@ -6,5 +6,5 @@ export const POST = route(
     const body = (await readJson(request)) as { id?: string; connection: never }
     return Response.json(await testConnection(user, body.connection, body.id))
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

@@ -19,7 +19,7 @@ export const PUT = route<{ id: string }>(
         (await readJson(request)) as never
       )
     ),
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )
 
 export const DELETE = route<{ id: string }>(
@@ -27,5 +27,5 @@ export const DELETE = route<{ id: string }>(
     await deleteConnection(user, params.id)
     return Response.json({ ok: true })
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

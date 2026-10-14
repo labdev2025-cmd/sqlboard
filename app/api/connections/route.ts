@@ -22,5 +22,5 @@ export const POST = route(
         status: 201,
       }
     ),
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )

@@ -13,7 +13,7 @@ export const GET = route<{ id: string }>(
 export const PUT = route<{ id: string }>(
   async ({ request, user, params }) =>
     Response.json(await updateAction(user, params.id, await readJson(request))),
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )
 
 export const DELETE = route<{ id: string }>(
@@ -21,5 +21,5 @@ export const DELETE = route<{ id: string }>(
     await deleteAction(user, params.id)
     return Response.json({ ok: true })
   },
-  { roles: ["admin"] }
+  { roles: ["admin"], allowToken: false }
 )
