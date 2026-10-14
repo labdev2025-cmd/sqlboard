@@ -175,7 +175,20 @@ export class MssqlAdapter implements DataSourceAdapter {
       await new sql.Request(tx).batch(
         `SET LOCK_TIMEOUT ${Math.min(clampMs(timeoutMs), 10_000)}`
       )
-      return await fn(tx)
+      const result = await fn(tx)
+      // Defense in depth: a batch that ended our transaction (COMMIT) may
+      // have persisted changes; never report it as a normal result.
+      const check = await new sql.Request(tx).query<{ n: number }>(
+        "SELECT @@TRANCOUNT AS n"
+      )
+      if ((check.recordset[0]?.n ?? 0) < 1) {
+        console.error("[mssql] transação encerrada pela query do usuário")
+        throw new DataSourceError(
+          "A query encerrou a transação de leitura. Use um login só com leitura (db_datareader).",
+          "forbidden"
+        )
+      }
+      return result
     } finally {
       await tx.rollback().catch(() => undefined)
     }

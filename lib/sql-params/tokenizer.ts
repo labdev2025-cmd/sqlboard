@@ -351,6 +351,81 @@ const READ_KEYWORDS = new Set([
 ])
 
 /** Read connections only accept a single statement that starts like a query. */
+/** Lower-case words of the code part (outside strings and comments). */
+function codeWords(sql: string, dialect: SqlDialect): string[] {
+  return (
+    maskProtected(sql, dialect)
+      .toLowerCase()
+      .match(/[a-z_][a-z0-9_$#]*/g) ?? []
+  )
+}
+
+/**
+ * T-SQL runs a whole batch without needing ";" between statements, and the
+ * driver sends the text through sp_executesql. Reserved words that start
+ * another statement (or end the wrapping transaction) are refused anywhere
+ * in the code: as reserved words they can only appear unquoted as commands.
+ */
+const MSSQL_FORBIDDEN = new Set([
+  "insert",
+  "update",
+  "delete",
+  "merge",
+  "exec",
+  "execute",
+  "commit",
+  "rollback",
+  "save",
+  "begin",
+  "declare",
+  "set",
+  "into",
+  "waitfor",
+  "drop",
+  "create",
+  "alter",
+  "truncate",
+  "grant",
+  "revoke",
+  "deny",
+  "use",
+  "backup",
+  "restore",
+  "dbcc",
+  "kill",
+  "shutdown",
+  "reconfigure",
+  "bulk",
+  "openrowset",
+  "opendatasource",
+  "openquery",
+])
+
+function assertDialectSafe(
+  sql: string,
+  dialect: SqlDialect,
+  allowed: ReadonlySet<string> = new Set()
+) {
+  if (dialect === "mssql") {
+    const word = codeWords(sql, dialect).find(
+      (w) => MSSQL_FORBIDDEN.has(w) && !allowed.has(w)
+    )
+    if (word) {
+      throw new SqlParamError(
+        `No SQL Server, "${word.toUpperCase()}" não é permitido aqui (o banco executaria mais de um comando).`
+      )
+    }
+  }
+  if (dialect === "mysql") {
+    const code = maskProtected(sql, dialect)
+    if (/\binto\s+(outfile|dumpfile)\b|\bload_file\s*\(/i.test(code)) {
+      throw new SqlParamError(
+        "Ler ou gravar arquivos do servidor (INTO OUTFILE, LOAD_FILE) não é permitido."
+      )
+    }
+  }
+}
+
 export function assertSingleReadStatement(
   sql: string,
   dialect: SqlDialect = "postgres"
@@ -368,6 +443,7 @@ export function assertSingleReadStatement(
       `Somente consultas de leitura são permitidas (o comando começa com "${keyword.toUpperCase()}").`
     )
   }
+  assertDialectSafe(sql, dialect)
 }
 
 const WRITE_KEYWORDS = new Set(["insert", "update"])
@@ -400,7 +476,25 @@ export function assertSingleWriteStatement(
       "Cláusulas opcionais [[ ]] não são permitidas em ações de escrita."
     )
   }
-  if (keyword === "update" && !/\bwhere\b/i.test(code)) {
+  if (keyword === "update" && !hasTopLevelWhere(code)) {
     throw new SqlParamError("UPDATE sem WHERE não é permitido.")
   }
+  const commands = codeWords(sql, dialect).filter((w) =>
+    ["insert", "update", "delete", "merge"].includes(w)
+  )
+  if (commands.length > 1) {
+    throw new SqlParamError("Envie um único INSERT ou UPDATE por ação.")
+  }
+  assertDialectSafe(sql, dialect, new Set([keyword, "set", "into"]))
+}
+
+/** WHERE at parenthesis depth 0 (a WHERE inside a subquery does not count). */
+function hasTopLevelWhere(code: string) {
+  let depth = 0
+  for (const match of code.matchAll(/[()]|\bwhere\b/gi)) {
+    if (match[0] === "(") depth++
+    else if (match[0] === ")") depth = Math.max(0, depth - 1)
+    else if (depth === 0) return true
+  }
+  return false
 }

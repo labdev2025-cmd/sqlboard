@@ -191,6 +191,28 @@ describe("compilador por dialeto", () => {
     )
     expect(my.sql).toBe("select * from t where s in (?, ?)")
     expect(my.values).toEqual(["a", "b"])
+    // The same "IN (:s)" works on PostgreSQL (rewritten to = ANY / <> ALL).
+    expect(
+      compileSql("select * from t where s in ( :s )", { s: ["a"] }, { params })
+        .sql
+    ).toBe("select * from t where s = any($1 )")
+    expect(
+      compileSql(
+        "select * from t where s NOT IN (:s)",
+        { s: ["a"] },
+        { params }
+      ).sql
+    ).toBe("select * from t where s <> all($1)")
+    // Not a lone list: left untouched.
+    expect(
+      compileSql(
+        "select * from t where f(:s) and x in (1)",
+        { s: ["a"] },
+        {
+          params,
+        }
+      ).sql
+    ).toBe("select * from t where f($1) and x in (1)")
     const opt = compileSql(
       "select 1 [[ where s in (:s) ]]",
       { s: [] },
@@ -301,5 +323,75 @@ describe("comando de escrita das ações", () => {
       )
     ).toThrow(/opcionais/)
     expect(() => assertSingleWriteStatement("")).toThrow(/vazio/)
+  })
+})
+
+describe("comandos perigosos por dialeto", () => {
+  it("SQL Server: recusa lote com outro comando sem ';' (COMMIT, UPDATE, EXEC)", async () => {
+    const { assertSingleReadStatement, assertSingleWriteStatement } =
+      await import("@/lib/sql-params")
+    const read = (sql: string) => () => assertSingleReadStatement(sql, "mssql")
+    expect(
+      read("select top 10 * from dbo.clientes where uf = :uf")
+    ).not.toThrow()
+    expect(
+      read("select [update], [set] from dbo.t -- update\nwhere x = 'commit'")
+    ).not.toThrow()
+    expect(
+      read("SELECT 1 AS ok COMMIT TRAN UPDATE dbo.clientes SET nome='x'")
+    ).toThrow(/COMMIT/)
+    expect(read("select 1 exec xp_cmdshell 'dir'")).toThrow(/EXEC/)
+    expect(read("select * into dbo.copia from dbo.clientes")).toThrow(/INTO/)
+    expect(read("select 1 waitfor delay '00:00:10'")).toThrow(/WAITFOR/)
+    expect(read("select * from openrowset('x', 'y', 'z')")).toThrow(
+      /OPENROWSET/
+    )
+    // Same text is fine on PostgreSQL (one statement per extended-protocol call).
+    expect(() =>
+      assertSingleReadStatement("select 1 as commit_count", "postgres")
+    ).not.toThrow()
+
+    const write = (sql: string) => () =>
+      assertSingleWriteStatement(sql, "mssql")
+    expect(write("update dbo.t set a = :a where id = :id")).not.toThrow()
+    expect(
+      write("insert into dbo.t (a) output inserted.id values (:a)")
+    ).not.toThrow()
+    expect(
+      write("update dbo.t set a = 1 where id = 1 delete from dbo.t")
+    ).toThrow(/único INSERT ou UPDATE/)
+    expect(write("update dbo.t set a = 1 where id = 1 commit")).toThrow(
+      /COMMIT/
+    )
+  })
+
+  it("MySQL: recusa ler ou gravar arquivos do servidor", async () => {
+    const { assertSingleReadStatement } = await import("@/lib/sql-params")
+    expect(() =>
+      assertSingleReadStatement(
+        "select * from t into outfile '/tmp/x'",
+        "mysql"
+      )
+    ).toThrow(/arquivos/)
+    expect(() =>
+      assertSingleReadStatement("select load_file('/etc/passwd')", "mysql")
+    ).toThrow(/arquivos/)
+    expect(() =>
+      assertSingleReadStatement("select 'into outfile' as texto", "mysql")
+    ).not.toThrow()
+  })
+
+  it("UPDATE exige WHERE no nível principal, não só numa subquery", async () => {
+    const { assertSingleWriteStatement } = await import("@/lib/sql-params")
+    expect(() =>
+      assertSingleWriteStatement(
+        "update t set a = (select max(b) from x where y = 1)"
+      )
+    ).toThrow(/WHERE/)
+    expect(() =>
+      assertSingleWriteStatement(
+        "update t set a = (select max(b) from x where y = 1) where id = :id"
+      )
+    ).not.toThrow()
   })
 })

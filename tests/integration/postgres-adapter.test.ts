@@ -141,6 +141,45 @@ describe("execução segura no PostgreSQL", () => {
     ])
   })
 
+  it("não deixa locks de sessão para o próximo usuário do pool", async () => {
+    const key = 4_200_000 + Math.floor(Math.random() * 1000)
+    await run(ro, "select pg_advisory_lock(:k::bigint)", { k: String(key) })
+    const locks = await run(
+      owner,
+      "select count(*)::int as n from pg_locks where locktype = 'advisory' and objid = :k::bigint",
+      { k: String(key) }
+    )
+    expect(locks.rows[0]![0]).toBe(0)
+  })
+
+  it("cláusula opcional some quando o parâmetro está vazio (banco real)", async () => {
+    const sql =
+      "select count(*)::int as n from loja.clientes where 1 = 1 [[ and uf = :uf ]]"
+    const all = await run(ro, sql, { uf: "" })
+    const ce = await run(ro, sql, { uf: "CE" })
+    expect(all.rows[0]![0]).toBeGreaterThan(ce.rows[0]![0] as number)
+    expect(ce.rows[0]![0]).toBeGreaterThan(0)
+  })
+
+  it("parâmetro multi usa = ANY no PostgreSQL", async () => {
+    const compiled = compileSql(
+      "select distinct uf from loja.clientes where uf = any(:ufs) order by uf",
+      { ufs: ["CE", "SP"] },
+      { params: [{ name: "ufs", type: "multi", required: true }] }
+    )
+    expect(compiled.sql).toContain("any($1)")
+    expect(compiled.values).toEqual([["CE", "SP"]])
+    const result = await ro.execute(compiled, { maxRows: 10, timeoutMs: 5000 })
+    const portable = compileSql(
+      "select distinct uf from loja.clientes where uf in (:ufs) order by uf",
+      { ufs: ["CE", "SP"] },
+      { params: [{ name: "ufs", type: "multi", required: true }] }
+    )
+    const same = await ro.execute(portable, { maxRows: 10, timeoutMs: 5000 })
+    expect(same.rows).toEqual(result.rows)
+    expect(result.rows.map((r) => r[0])).toEqual(["CE", "SP"])
+  })
+
   it("explain não executa a query", async () => {
     const plan = await ro.explain(compileSql("select pg_sleep(30)", {}), {
       timeoutMs: 2000,

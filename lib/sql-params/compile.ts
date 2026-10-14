@@ -164,7 +164,7 @@ export function compileSql(
     return style.next(values.length)
   }
 
-  for (const token of tokens) {
+  for (const [index, token] of tokens.entries()) {
     if (token.kind === "optional-start") {
       clauseIndex++
       const names = structure.optionalClauses[clauseIndex] ?? []
@@ -197,6 +197,15 @@ export function compileSql(
       }
       out += list.map((item) => bind(item)).join(", ")
       continue
+    }
+    if (isMulti && dialect === "postgres") {
+      // The same SQL works on every database: "IN (:list)" becomes
+      // "= ANY($n)" (and "NOT IN" becomes "<> ALL") with one array value.
+      const next = tokens[index + 1]
+      const opening = /\b(not\s+)?in\s*\(\s*$/i.exec(out)
+      if (opening && next?.kind === "text" && /^\s*\)/.test(next.value)) {
+        out = out.slice(0, opening.index) + (opening[1] ? "<> all(" : "= any(")
+      }
     }
     if (style.reuse) {
       let placeholder = assigned.get(name)

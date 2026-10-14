@@ -135,6 +135,13 @@ describe.skipIf(!host)("execução segura no SQL Server", () => {
     expect(await count()).toBe(1)
   })
 
+  it("detecta quando a query encerra a transação de leitura", async () => {
+    // Direct adapter call (the API refuses this text before it gets here).
+    await expect(run(owner, "select 1 as x commit tran")).rejects.toMatchObject(
+      { code: "forbidden" }
+    )
+  })
+
   it("introspecta", async () => {
     const schema = await ro.introspect()
     expect(schema.serverVersion).toMatch(/^SQL Server/)

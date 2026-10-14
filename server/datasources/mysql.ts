@@ -195,6 +195,17 @@ export class MysqlAdapter implements DataSourceAdapter {
     )
   }
 
+  /**
+   * COM_RESET_CONNECTION before the pooled connection goes back: user
+   * variables (@x) and GET_LOCK locks survive ROLLBACK and would leak to the
+   * next user of the pool.
+   */
+  private resetSession(connection: PoolConnection) {
+    return new Promise<void>((resolve, reject) =>
+      connection.reset((error) => (error ? reject(error) : resolve()))
+    )
+  }
+
   async testConnection() {
     const connection = await this.connect()
     try {
@@ -248,6 +259,7 @@ export class MysqlAdapter implements DataSourceAdapter {
       if (!broken) {
         try {
           await this.run(connection, "ROLLBACK")
+          await this.resetSession(connection)
         } catch {
           broken = true
         }
@@ -447,9 +459,10 @@ export class MysqlAdapter implements DataSourceAdapter {
       throw translateMysqlError(error)
     } finally {
       clearTimeout(timer)
-      if (!committed && !broken) {
+      if (!broken) {
         try {
-          await this.run(connection, "ROLLBACK")
+          if (!committed) await this.run(connection, "ROLLBACK")
+          await this.resetSession(connection)
         } catch {
           broken = true
         }

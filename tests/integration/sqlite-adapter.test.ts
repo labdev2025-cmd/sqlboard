@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process"
+import { rmSync, symlinkSync } from "node:fs"
 import path from "node:path"
 
 import { beforeAll, describe, expect, it } from "vitest"
@@ -96,6 +97,14 @@ describe("execução segura no SQLite", () => {
       /precisa ficar dentro/
     )
     expect(() => resolveSqlitePath("/etc/passwd", dir)).toThrow()
+    // A symlink placed inside the directory cannot point outside of it.
+    const link = path.join(dir, "atalho.db")
+    rmSync(link, { force: true })
+    symlinkSync("/etc/hostname", link)
+    expect(() => resolveSqlitePath("atalho.db", dir)).toThrow(
+      /precisa ficar dentro/
+    )
+    rmSync(link, { force: true })
     await expect(adapter("nao-existe.db").testConnection()).rejects.toThrow(
       /não encontrado/
     )

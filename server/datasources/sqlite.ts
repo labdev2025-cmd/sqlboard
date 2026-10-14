@@ -4,6 +4,7 @@ import "server-only"
 // (require.resolve here would become a bundler module id, not a path.)
 import "better-sqlite3"
 
+import { existsSync, realpathSync } from "node:fs"
 import path from "node:path"
 import { Worker } from "node:worker_threads"
 
@@ -189,14 +190,21 @@ export function resolveSqlitePath(
   file: string,
   baseDir = process.env.SQLBOARD_SQLITE_DIR ?? "data/sqlite"
 ) {
-  // Runtime-configured directory: not a build input (keeps tracing scoped).
-  const base = path.resolve(/* turbopackIgnore: true */ baseDir)
-  const resolved = path.resolve(/* turbopackIgnore: true */ base, file)
-  if (resolved !== base && !resolved.startsWith(base + path.sep)) {
-    throw new DataSourceError(
+  const outside = (base: string) =>
+    new DataSourceError(
       `O arquivo SQLite precisa ficar dentro de ${base} (variável SQLBOARD_SQLITE_DIR).`,
       "connection"
     )
+  const inside = (base: string, target: string) =>
+    target === base || target.startsWith(base + path.sep)
+  // Runtime-configured directory: not a build input (keeps tracing scoped).
+  const base = path.resolve(/* turbopackIgnore: true */ baseDir)
+  const resolved = path.resolve(/* turbopackIgnore: true */ base, file)
+  if (!inside(base, resolved)) throw outside(base)
+  // A symlink inside the directory must not lead outside of it.
+  if (existsSync(resolved)) {
+    const realBase = realpathSync(base)
+    if (!inside(realBase, realpathSync(resolved))) throw outside(base)
   }
   return resolved
 }

@@ -246,6 +246,9 @@ export class PostgresAdapter implements DataSourceAdapter {
     } finally {
       try {
         await client.query("ROLLBACK")
+        // Session-level advisory locks survive ROLLBACK: release them so
+        // nothing leaks to the next user of the pooled connection.
+        await client.query("SELECT pg_advisory_unlock_all()")
       } catch {
         broken = true
       }
