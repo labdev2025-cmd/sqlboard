@@ -275,10 +275,16 @@ export class MysqlAdapter implements DataSourceAdapter {
     let threadId: number | null = null
     let cancelled = false
     let timedOut = false
+    // A KILL QUERY still in flight when the connection goes back to the pool
+    // would interrupt the next user's query: every kill is awaited before
+    // the connection is released.
+    let pendingKill: Promise<void> | null = null
+    const killQuery = (id: number) =>
+      (pendingKill ??= this.kill(id).catch(() => undefined))
     const handle: ExecutionHandle = {
       cancel: async () => {
         cancelled = true
-        if (threadId !== null) await this.kill(threadId)
+        if (threadId !== null) await killQuery(threadId)
       },
     }
     if (opts.signal?.aborted)
@@ -314,7 +320,7 @@ export class MysqlAdapter implements DataSourceAdapter {
                 // Stop reading: kill the statement, keep what we have.
                 finish(() => {
                   clearTimeout(timer)
-                  void this.kill(connection.threadId).catch(() => undefined)
+                  void killQuery(connection.threadId)
                   resolve(this.result(fields, rows, maxRows, started))
                 })
               }
@@ -324,7 +330,7 @@ export class MysqlAdapter implements DataSourceAdapter {
             // statement too, and an interrupted run never counts as success.
             const timer = setTimeout(() => {
               timedOut = true
-              void this.kill(connection.threadId).catch(() => undefined)
+              void killQuery(connection.threadId)
             }, clampMs(opts.timeoutMs))
             const interrupted = () =>
               cancelled
@@ -349,7 +355,7 @@ export class MysqlAdapter implements DataSourceAdapter {
                 else resolve(this.result(fields, rows, maxRows, started))
               })
             )
-          }),
+          }).finally(() => pendingKill),
         (connection) => {
           threadId = connection.threadId
         }
@@ -407,9 +413,10 @@ export class MysqlAdapter implements DataSourceAdapter {
     let committed = false
     let broken = false
     let timedOut = false
+    let killing: Promise<void> | null = null
     const timer = setTimeout(() => {
       timedOut = true
-      void this.kill(connection.threadId).catch(() => undefined)
+      killing = this.kill(connection.threadId).catch(() => undefined)
     }, ms)
     try {
       // Integer we control, never user text.
@@ -459,6 +466,8 @@ export class MysqlAdapter implements DataSourceAdapter {
       throw translateMysqlError(error)
     } finally {
       clearTimeout(timer)
+      // Never hand the connection back with a KILL still on its way.
+      await killing
       if (!broken) {
         try {
           if (!committed) await this.run(connection, "ROLLBACK")

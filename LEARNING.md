@@ -3,6 +3,7 @@
 Leia as entradas relacionadas à tarefa. Os detalhes ficam em `docs/learning/`.
 
 ## Bugs e soluções
+- [Cancelamento atrasado atinge a próxima query do pool](docs/learning/bug-kill-atrasado-pool.md) — espere o KILL/cancel antes de devolver a conexão.
 - [Rollback no SQL Server com request ativo](docs/learning/bug-mssql-rollback-com-request-ativo.md) — decida no evento "done"; senão a conexão vaza e o close() trava.
 - [Worker do SQLite não acha o driver no build](docs/learning/bug-sqlite-worker-modulo-bundler.md) — require.resolve vira id do bundler; resolver dentro do código do worker.
 

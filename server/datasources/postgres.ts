@@ -261,10 +261,13 @@ export class PostgresAdapter implements DataSourceAdapter {
     const maxRows = Math.max(1, Math.trunc(opts.maxRows))
     let pid: number | undefined
     let cancelled = false
+    // A cancel still in flight when the client returns to the pool could hit
+    // the next user's query: it is awaited before the release.
+    let pendingCancel: Promise<void> | null = null
     const handle: ExecutionHandle = {
       cancel: async () => {
         cancelled = true
-        if (pid) await this.cancelBackend(pid)
+        if (pid) await (pendingCancel ??= this.cancelBackend(pid))
       },
     }
     const onAbort = () => void handle.cancel()
@@ -277,46 +280,10 @@ export class PostgresAdapter implements DataSourceAdapter {
       return await this.readOnly(
         opts.timeoutMs,
         async (client) => {
-          if (cancelled)
-            throw new DataSourceError("Execução cancelada.", "cancelled")
-          // pg-cursor always uses the extended protocol (Parse/Bind/Execute),
-          // so PostgreSQL rejects more than one statement per call.
-          const cursor = client.query(
-            new Cursor(query.sql, query.values as unknown[], {
-              rowMode: "array",
-              types: resultTypes,
-            })
-          )
-          opts.onStart?.(handle)
-          const { rows, fields } = await new Promise<{
-            rows: unknown[][]
-            fields: { name: string; dataTypeID: number }[]
-          }>((resolve, reject) => {
-            cursor.read(maxRows + 1, (error, rows, result) => {
-              if (error) reject(error)
-              else
-                resolve({
-                  rows: rows as unknown[][],
-                  fields: (result?.fields ?? []) as never,
-                })
-            })
-          })
-          await cursor.close().catch(() => undefined)
-          const truncated = rows.length > maxRows
-          const columns: ResultColumn[] = fields.map((field) => ({
-            name: field.name,
-            kind: kindOf(field.dataTypeID),
-            nativeType:
-              OID_KINDS[field.dataTypeID]?.[1] ?? `oid:${field.dataTypeID}`,
-          }))
-          const kept = truncated ? rows.slice(0, maxRows) : rows
-          return {
-            columns,
-            rows: kept.map((row) => row.map(toCell)),
-            rowCount: kept.length,
-            truncated,
-            durationMs: Math.round(performance.now() - started),
-            limit: maxRows,
+          try {
+            return await readRows(client)
+          } finally {
+            await pendingCancel?.catch(() => undefined)
           }
         },
         (client) => {
@@ -329,6 +296,50 @@ export class PostgresAdapter implements DataSourceAdapter {
       throw error
     } finally {
       opts.signal?.removeEventListener("abort", onAbort)
+    }
+
+    async function readRows(client: PoolClient): Promise<QueryResult> {
+      if (cancelled)
+        throw new DataSourceError("Execução cancelada.", "cancelled")
+      // pg-cursor always uses the extended protocol (Parse/Bind/Execute),
+      // so PostgreSQL rejects more than one statement per call.
+      const cursor = client.query(
+        new Cursor(query.sql, query.values as unknown[], {
+          rowMode: "array",
+          types: resultTypes,
+        })
+      )
+      opts.onStart?.(handle)
+      const { rows, fields } = await new Promise<{
+        rows: unknown[][]
+        fields: { name: string; dataTypeID: number }[]
+      }>((resolve, reject) => {
+        cursor.read(maxRows + 1, (error, rows, result) => {
+          if (error) reject(error)
+          else
+            resolve({
+              rows: rows as unknown[][],
+              fields: (result?.fields ?? []) as never,
+            })
+        })
+      })
+      await cursor.close().catch(() => undefined)
+      const truncated = rows.length > maxRows
+      const columns: ResultColumn[] = fields.map((field) => ({
+        name: field.name,
+        kind: kindOf(field.dataTypeID),
+        nativeType:
+          OID_KINDS[field.dataTypeID]?.[1] ?? `oid:${field.dataTypeID}`,
+      }))
+      const kept = truncated ? rows.slice(0, maxRows) : rows
+      return {
+        columns,
+        rows: kept.map((row) => row.map(toCell)),
+        rowCount: kept.length,
+        truncated,
+        durationMs: Math.round(performance.now() - started),
+        limit: maxRows,
+      }
     }
   }
 
