@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import {
+  BotIcon,
   DatabaseIcon,
   FileCode2Icon,
   LayoutDashboardIcon,
@@ -10,6 +11,7 @@ import {
 import { PageBody, PageHeader } from "@/components/app-shell/page-header"
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -49,6 +51,13 @@ export default async function HomePage() {
             description: "Bancos que a equipe pode consultar.",
             icon: DatabaseIcon,
           },
+          {
+            href: "/ai",
+            title: "Conectar IA",
+            description:
+              "Peça ao Claude, Codex ou Cursor para criar queries e telas.",
+            icon: BotIcon,
+          },
         ]
       : []),
   ]
@@ -57,6 +66,41 @@ export default async function HomePage() {
     <>
       <PageHeader title={`Olá, ${user.name.split(" ")[0]}`} />
       <PageBody>
+        {canEdit(user.role) ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Como funciona</CardTitle>
+              <CardDescription>
+                O sqlboard transforma consultas SQL em telas que a equipe usa
+                sem precisar saber SQL.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+                <li>
+                  <strong>Conexão:</strong> um administrador cadastra o banco
+                  (de preferência com um usuário só de leitura).
+                </li>
+                <li>
+                  <strong>Query:</strong> você escreve um SELECT; cada{" "}
+                  <code>:parametro</code> vira um campo de filtro.
+                </li>
+                <li>
+                  <strong>Tela:</strong> arraste tabelas, gráficos, KPIs e
+                  filtros ligados à query, ou use “Gerar tela automática”.
+                </li>
+                <li>
+                  <strong>Publicar:</strong> quem tem acesso usa a tela pronta,
+                  só preenchendo os filtros e exportando os dados.
+                </li>
+              </ol>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Prefere pedir em português? Em <strong>Conectar IA</strong>, uma
+                IA faz esses passos por você e você acompanha ao vivo.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           Escolha por onde começar.
         </p>

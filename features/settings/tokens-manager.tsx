@@ -1,16 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  CheckIcon,
-  CopyIcon,
-  KeyRoundIcon,
-  PlusIcon,
-  Trash2Icon,
-} from "lucide-react"
+import { KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { EmptyState } from "@/components/app-shell/states"
+import { CopyField } from "@/components/copy-field"
 import { SimpleSelect } from "@/components/simple-select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -42,12 +38,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -211,52 +201,15 @@ export function TokensManager({ origin }: { origin: string }) {
           Endereço do servidor MCP (HTTP):{" "}
           <code className="break-all">{origin}/api/mcp</code>, com o cabeçalho{" "}
           <code>Authorization: Bearer &lt;token&gt;</code>. O agente cria e
-          edita rascunhos; publicar continua sendo feito por você na tela.
+          edita rascunhos; publicar continua sendo feito por você na tela. O
+          passo a passo para cada IA está em{" "}
+          <Link href="/ai" className="underline underline-offset-4">
+            Conectar IA
+          </Link>
+          .
         </p>
       </section>
     </div>
-  )
-}
-
-function CopyField({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = React.useState(false)
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  return (
-    <InputGroup>
-      <InputGroupInput
-        ref={inputRef}
-        readOnly
-        value={value}
-        aria-label={label}
-        className="font-mono text-xs"
-        onFocus={(e) => e.currentTarget.select()}
-      />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          aria-label={
-            copied ? `${label} copiado` : `Copiar ${label.toLowerCase()}`
-          }
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(value)
-              setCopied(true)
-              toast.add({ title: `${label} copiado`, type: "success" })
-            } catch {
-              // Without clipboard access (HTTP, permission): select the text
-              // so the person can copy it by hand.
-              inputRef.current?.select()
-              toast.add({
-                title: "Não foi possível copiar",
-                description: "O texto ficou selecionado: copie com Ctrl+C.",
-                type: "error",
-              })
-            }
-          }}
-        >
-          {copied ? <CheckIcon /> : <CopyIcon />}
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
   )
 }
 

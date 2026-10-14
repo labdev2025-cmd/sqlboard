@@ -111,8 +111,17 @@ describe("servidor MCP", () => {
         "create_app",
         "update_app_draft",
         "generate_screen",
+        "list_saved_queries",
+        "save_query",
+        "add_query",
+        "add_page",
+        "add_widget",
+        "update_widget",
+        "remove_widget",
       ])
     )
+    // The workflow is announced to the client on initialize.
+    expect(init.body.result.instructions).toContain("get_schema")
     expect(names).not.toContain("publish_app")
   })
 
@@ -192,5 +201,118 @@ describe("servidor MCP", () => {
     ).toBe(true)
     const format = await call(editorToken, "document_format")
     expect(String(format.data)).toContain("JSON Schema")
+  })
+
+  it("monta uma tela passo a passo: biblioteca, query, página e componentes", async () => {
+    const reader = await makeUser("viewer")
+    const readerToken = (await createToken(reader, { name: "Leitor 2" })).token
+    const sql =
+      "select uf, count(*) as total from loja.clientes [[ where uf = :uf ]] group by uf order by uf"
+    const saved = await call(editorToken, "save_query", {
+      connectionId,
+      name: "Clientes por UF (MCP)",
+      description: "Quantidade de clientes por estado.",
+      tags: ["clientes"],
+      sql,
+    })
+    expect(saved.isError).toBe(false)
+    const savedId = (saved.data as { id: string }).id
+    const listed = await call(editorToken, "list_saved_queries", {
+      q: "MCP",
+    })
+    expect((listed.data as { id: string }[]).map((q) => q.id)).toContain(
+      savedId
+    )
+    // Viewers cannot use the library.
+    expect(
+      (await call(readerToken, "save_query", { connectionId, name: "x", sql }))
+        .isError
+    ).toBe(true)
+
+    const created = await call(editorToken, "create_app", {
+      name: "Clientes passo a passo (MCP)",
+    })
+    const appId = (created.data as { id: string }).id
+
+    const added = await call(editorToken, "add_query", {
+      appId,
+      savedQueryId: savedId,
+      name: "clientes_uf",
+    })
+    expect(added.isError).toBe(false)
+    expect(
+      (
+        await call(editorToken, "add_query", {
+          appId,
+          savedQueryId: savedId,
+          name: "clientes_uf",
+        })
+      ).isError
+    ).toBe(true)
+
+    const page = await call(editorToken, "add_page", { appId, name: "Detalhe" })
+    const pageId = (page.data as { pageId: string }).pageId
+
+    const filter = await call(editorToken, "add_widget", {
+      appId,
+      pageId,
+      type: "text-input",
+      props: { label: "UF", param: "uf" },
+      grid: { w: 4 },
+    })
+    expect(filter.isError).toBe(false)
+    const table = await call(editorToken, "add_widget", {
+      appId,
+      pageId,
+      type: "table",
+      query: "clientes_uf",
+      props: { title: "Clientes por UF" },
+    })
+    expect(table.isError).toBe(false)
+    const tableId = (table.data as { widget: { id: string } }).widget.id
+
+    // Invalid props are rejected by the document schema, nothing is saved.
+    const invalid = await call(editorToken, "add_widget", {
+      appId,
+      type: "table",
+      props: { pageSize: "muitos" },
+    })
+    expect(invalid.isError).toBe(true)
+    expect(
+      (
+        await call(editorToken, "add_widget", {
+          appId,
+          type: "table",
+          query: "nao_existe",
+        })
+      ).isError
+    ).toBe(true)
+
+    await call(editorToken, "update_widget", {
+      appId,
+      widgetId: tableId,
+      props: { title: "Clientes por estado" },
+      grid: { h: 10 },
+    })
+    let doc = (await getAppForEdit(editor, appId)).document
+    const detail = doc.pages.find((p) => p.id === pageId)!
+    expect(doc.queries[0]!.sourceQueryId).toBe(savedId)
+    expect(detail.widgets.map((w) => w.type)).toEqual(["text-input", "table"])
+    const tableWidget = detail.widgets[1]!
+    expect(tableWidget.bindings.data).toBe("{{clientes_uf.data}}")
+    expect((tableWidget.props as { title: string }).title).toBe(
+      "Clientes por estado"
+    )
+    expect(tableWidget.grid.h).toBe(10)
+    expect(tableWidget.grid.y).toBeGreaterThanOrEqual(detail.widgets[0]!.grid.h)
+
+    await call(editorToken, "remove_widget", { appId, widgetId: tableId })
+    doc = (await getAppForEdit(editor, appId)).document
+    expect(doc.pages.find((p) => p.id === pageId)!.widgets).toHaveLength(1)
+
+    // Someone without edit access to the screen cannot change it.
+    expect(
+      (await call(readerToken, "add_page", { appId, name: "x" })).isError
+    ).toBe(true)
   })
 })

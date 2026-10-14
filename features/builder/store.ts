@@ -12,12 +12,9 @@ import {
   type Page,
   type Widget,
 } from "@/lib/app-schema"
-import {
-  defaultProps,
-  WIDGET_INFO,
-  type WidgetType,
-} from "@/lib/widgets/registry"
-import { widgetBaseName } from "@/lib/widgets/suggest"
+import { bottomY, createWidget } from "@/lib/widgets/create"
+
+export { bottomY, createWidget }
 
 const HISTORY_LIMIT = 100
 
@@ -37,6 +34,11 @@ export type BuilderState = {
     fn: (doc: AppDocument) => AppDocument,
     options?: { history?: boolean }
   ) => void
+  /**
+   * Replaces the document with a version saved elsewhere (an AI agent, another
+   * tab). It is one undo step, and returns the new revision.
+   */
+  replaceExternal: (doc: AppDocument) => number
   undo: () => void
   redo: () => void
   select: (selection: Selection) => void
@@ -70,6 +72,23 @@ export const useBuilder = create<BuilderState>((set, get) => ({
       future: options.history === false ? get().future : [],
       revision: revision + 1,
     })
+  },
+  replaceExternal: (next) => {
+    const { doc, past, revision, pageId, selection } = get()
+    const keepsWidget =
+      selection?.kind !== "widget" ||
+      next.pages.some((p) => p.widgets.some((w) => w.id === selection.id))
+    set({
+      doc: next,
+      past: [...past, doc].slice(-HISTORY_LIMIT),
+      future: [],
+      revision: revision + 1,
+      pageId: next.pages.some((p) => p.id === pageId)
+        ? pageId
+        : next.pages[0]!.id,
+      selection: keepsWidget ? selection : null,
+    })
+    return revision + 1
   },
   undo: () => {
     const { past, doc, future, revision, pageId } = get()
@@ -118,36 +137,6 @@ export function findWidget(
     if (widget) return { page, widget }
   }
   return null
-}
-
-/** First free row below the existing widgets. */
-export function bottomY(page: Page) {
-  return page.widgets.reduce((max, w) => Math.max(max, w.grid.y + w.grid.h), 0)
-}
-
-export function createWidget(
-  doc: AppDocument,
-  page: Page,
-  type: WidgetType,
-  position?: Partial<GridPosition>,
-  dataQuery?: string
-): Widget {
-  const info = WIDGET_INFO[type]
-  const id = nextIdentifier(widgetBaseName(type), allIdentifiers(doc))
-  const w = Math.min(12, position?.w ?? info.size.w)
-  return {
-    id,
-    type,
-    grid: {
-      x: Math.min(Math.max(0, position?.x ?? 0), 12 - w),
-      y: position?.y ?? bottomY(page),
-      w,
-      h: position?.h ?? info.size.h,
-    },
-    props: defaultProps(type),
-    bindings:
-      info.usesData && dataQuery ? { data: `{{${dataQuery}.data}}` } : {},
-  } as Widget
 }
 
 export function updateWidgetIn(

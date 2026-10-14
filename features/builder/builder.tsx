@@ -96,6 +96,9 @@ import { querySnapshot } from "@/lib/app-schema/snapshot"
 
 type SaveState = "saved" | "saving" | "dirty" | "error"
 
+/** How often an open builder looks for changes saved elsewhere. */
+const LIVE_UPDATE_MS = 3000
+
 export type BuilderApp = {
   id: string
   ownerId: string
@@ -233,6 +236,46 @@ export function Builder({
     const timer = setTimeout(() => void flush().catch(() => undefined), 1200)
     return () => clearTimeout(timer)
   }, [revision, ready, flush])
+
+  /* -------- live updates: changes saved elsewhere (AI agent, other tab) ------- */
+  React.useEffect(() => {
+    if (!ready) return
+    let stopped = false
+    const check = async () => {
+      if (
+        stopped ||
+        window.document.visibilityState !== "visible" ||
+        saving.current ||
+        useBuilder.getState().revision !== savedRevision.current
+      ) {
+        return
+      }
+      try {
+        const fresh = await api<BuilderApp>(`/api/apps/${app.id}`)
+        if (stopped || fresh.updatedAt === updatedAt.current) return
+        // Local edits started meanwhile: autosave will report the conflict.
+        if (useBuilder.getState().revision !== savedRevision.current) return
+        updatedAt.current = fresh.updatedAt
+        savedRevision.current = useBuilder
+          .getState()
+          .replaceExternal(fresh.document)
+        setPublishedVersion(fresh.publishedVersion)
+        setAnnouncement("A tela foi atualizada fora deste editor.")
+        toast.add({
+          title: "Tela atualizada",
+          description:
+            "Alterações feitas fora deste editor (por exemplo, por um agente de IA). Use Desfazer para voltar.",
+        })
+      } catch {
+        // Offline or no longer allowed: the next save reports it.
+      }
+    }
+    const timer = setInterval(() => void check(), LIVE_UPDATE_MS)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [ready, app.id])
 
   React.useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -384,6 +427,8 @@ export function Builder({
   }
 
   const onLayout = (layout: Layout, fromUser: boolean) => {
+    const before = useBuilder.getState().revision
+    const wasSynced = before === savedRevision.current ? before : -1
     change(
       (d) => ({
         ...d,
@@ -411,6 +456,14 @@ export function Builder({
       }),
       { history: fromUser }
     )
+    // Compaction alone is cosmetic (the viewer compacts the same way): if the
+    // document was in sync, it stays in sync and does not trigger an autosave
+    // that would collide with changes arriving from an agent. It is saved
+    // with the next real edit.
+    const state = useBuilder.getState()
+    if (!fromUser && state.revision === wasSynced + 1 && wasSynced >= 0) {
+      savedRevision.current = state.revision
+    }
   }
 
   const onKeyboard = (widget: Widget, event: React.KeyboardEvent) => {
@@ -729,13 +782,15 @@ export function Builder({
             onValueChange={(value) => setPage(String(value))}
             className="min-w-0"
           >
-            <TabsList className="max-w-full overflow-x-auto">
-              {doc.pages.map((p) => (
-                <TabsTrigger key={p.id} value={p.id}>
-                  {p.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="max-w-full [scrollbar-width:thin] overflow-x-auto overflow-y-hidden py-1">
+              <TabsList className="w-max">
+                {doc.pages.map((p) => (
+                  <TabsTrigger key={p.id} value={p.id}>
+                    {p.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </Tabs>
           {mode === "edit" ? (
             <Button

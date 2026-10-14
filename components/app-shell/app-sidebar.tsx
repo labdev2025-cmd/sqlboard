@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  BotIcon,
   CalendarClockIcon,
   DatabaseIcon,
   DatabaseZapIcon,
@@ -66,6 +67,12 @@ const MAIN_NAV: NavItem[] = [
     title: "Ações de escrita",
     href: "/actions",
     icon: SquarePenIcon,
+    roles: ["admin", "editor"],
+  },
+  {
+    title: "Conectar IA",
+    href: "/ai",
+    icon: BotIcon,
     roles: ["admin", "editor"],
   },
 ]
