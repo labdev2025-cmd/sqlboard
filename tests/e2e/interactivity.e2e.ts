@@ -193,6 +193,13 @@ test.describe("interatividade, versões e compartilhamento", () => {
         page.getByRole("table", { name: "Clientes por UF" })
       ).toBeVisible()
       await expect(page.getByText("Título só no rascunho")).toHaveCount(0)
+      // Readers never receive the SQL nor the connection of the queries.
+      const view = await (
+        await page.request.get(`/api/apps/${appId}/view`)
+      ).json()
+      expect(view.permission).toBe("view")
+      expect(JSON.stringify(view.document)).not.toContain("loja.clientes")
+      expect(await page.content()).not.toContain("from loja.clientes")
       await expect(page.getByText("Preencha: uf.")).toBeVisible()
       await expectAccessible(page, [".recharts-wrapper"])
 

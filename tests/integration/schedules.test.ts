@@ -162,6 +162,13 @@ describe("agendamentos", () => {
     expect(csv).toContain("status,pedidos")
     expect(csv).not.toContain("cancelado")
 
+    // Allowed domains tightened later: the existing schedule stops sending.
+    process.env.SQLBOARD_MAIL_ALLOWED_DOMAINS = "empresa.test"
+    const blocked = await runScheduleNow(editor, schedule.id)
+    expect(blocked.status).toBe("error")
+    expect(blocked.error).toMatch(/domínios permitidos/)
+    delete process.env.SQLBOARD_MAIL_ALLOWED_DOMAINS
+
     // Others cannot see, run or delete it.
     expect(await status(runScheduleNow(other, schedule.id))).toBe(404)
     expect((await listSchedules(other)).map((s) => s.id)).not.toContain(

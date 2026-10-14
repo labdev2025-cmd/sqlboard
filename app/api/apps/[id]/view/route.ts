@@ -1,5 +1,5 @@
 import { route } from "@/server/http"
-import { getRunnableDocument } from "@/server/services/apps"
+import { documentForBrowser, getRunnableDocument } from "@/server/services/apps"
 
 /** Document to render in view mode (published by default; draft for editors). */
 export const GET = route<{ id: string }>(async ({ request, user, params }) => {
@@ -12,5 +12,9 @@ export const GET = route<{ id: string }>(async ({ request, user, params }) => {
     params.id,
     mode
   )
-  return Response.json({ document, permission, mode })
+  return Response.json({
+    document: documentForBrowser(document, permission),
+    permission,
+    mode,
+  })
 })

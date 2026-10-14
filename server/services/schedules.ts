@@ -330,6 +330,15 @@ export async function runSchedule(
   let outcome: ScheduleRunResult
   try {
     const owner = await loadOwner(row.ownerId)
+    // Rechecked on every run: tightening the allowed domains also stops
+    // schedules created before the change.
+    const domains = allowedDomains()
+    const refused = row.recipients.filter((r) => !recipientAllowed(r, domains))
+    if (refused.length) {
+      throw badRequest(
+        `Destinatários fora dos domínios permitidos: ${refused.join(", ")}.`
+      )
+    }
     const { title, link, sections, skipped } = await collect(row, owner)
     const format = row.format as ScheduleFormat
     const base = process.env.BETTER_AUTH_URL ?? ""

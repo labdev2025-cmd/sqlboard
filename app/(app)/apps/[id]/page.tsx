@@ -4,7 +4,7 @@ import { notFound } from "next/navigation"
 import { AppViewer } from "@/features/app-runtime/app-viewer"
 import { requireUser } from "@/server/auth/session"
 import { HttpError } from "@/server/http"
-import { getRunnableDocument } from "@/server/services/apps"
+import { documentForBrowser, getRunnableDocument } from "@/server/services/apps"
 
 export const metadata: Metadata = { title: "Tela" }
 
@@ -48,7 +48,7 @@ export default async function ViewAppPage({
   return (
     <AppViewer
       appId={id}
-      document={loaded.document}
+      document={documentForBrowser(loaded.document, loaded.permission)}
       mode={wantsDraft ? "draft" : "published"}
       canEdit={loaded.permission === "edit"}
       initialSearch={search}

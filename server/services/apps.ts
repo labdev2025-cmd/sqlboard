@@ -259,15 +259,29 @@ export async function getRunnableDocument(
   return { app, document: migrateDocument(version.document), permission }
 }
 
+/**
+ * What a reader's browser receives: queries keep name, parameters and run
+ * mode, but not the SQL nor the connection (the server loads both from the
+ * stored document when running).
+ */
+export function documentForBrowser(
+  document: AppDocument,
+  permission: Permission
+): AppDocument {
+  if (permission === "edit") return document
+  return {
+    ...document,
+    queries: document.queries.map((q) => ({ ...q, sql: "", connectionId: "" })),
+  }
+}
+
 function changedQueries(before: AppDocument | null, after: AppDocument) {
   const old = new Map((before?.queries ?? []).map((q) => [q.id, q]))
   return after.queries.filter((q) => {
     const previous = old.get(q.id)
-    return (
-      !previous ||
-      previous.connectionId !== q.connectionId ||
-      previous.sql !== q.sql
-    )
+    // Any change (SQL, connection, parameters, options, bindings) counts:
+    // e.g. dropping a list's allowed options widens what the query accepts.
+    return !previous || JSON.stringify(previous) !== JSON.stringify(q)
   })
 }
 
@@ -345,9 +359,24 @@ export async function updateAppMeta(
 
 export async function duplicateApp(user: CurrentUser, id: string) {
   assertCanCreate(user)
-  const { app } = await getAppAccess(user, id, "view")
+  const { app, permission } = await getAppAccess(user, id, "view")
+  // Viewers of the app copy what they can already see (the published
+  // version), never the unpublished draft.
+  const { document } = await getRunnableDocument(
+    user,
+    id,
+    permission === "edit" ? "draft" : "published"
+  )
+  // The copy belongs to the user: its queries must use their connections
+  // (published copies would otherwise run on connections they cannot use).
+  for (const query of document.queries) {
+    if (!(await canUseConnection(user, query.connectionId))) {
+      throw forbidden(
+        `Você não tem acesso à conexão da query “${query.name}”, então não pode duplicar esta tela.`
+      )
+    }
+  }
   const newId = crypto.randomUUID()
-  const document = migrateDocument(app.draft)
   let name = `${app.name} (cópia)`
   const mine = await db
     .select({ name: apps.name })

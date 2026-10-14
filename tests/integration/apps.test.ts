@@ -199,6 +199,14 @@ describe("telas: permissões no servidor", () => {
   })
 
   it("duplica e só o dono (ou admin) exclui", async () => {
+    // Without access to the connection, a copy would let editor2 publish and
+    // run queries on it: refused.
+    expect(await status(duplicateApp(editor2, appId))).toBe(403)
+    // A shared editor cannot loosen the owner's parameters either.
+    const doc = (await getAppForEdit(editor2, appId)).document
+    doc.queries[0]!.params = []
+    expect(await status(saveDraft(editor2, appId, doc))).toBe(403)
+    await setAccess(admin, connectionId, [owner.id, editor2.id])
     const copy = await duplicateApp(editor2, appId)
     expect((await getAppForEdit(editor2, copy.id)).document.app.name).toBe(
       "Clientes (cópia)"
