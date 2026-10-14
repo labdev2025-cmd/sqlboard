@@ -8,7 +8,7 @@ import { WIDGET_PROPS, type WidgetType } from "@/lib/widgets/registry"
  * by `schemaVersion`; older documents are migrated on load (see migrate.ts).
  */
 
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 export const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 const identifier = (what: string) =>
@@ -74,6 +74,12 @@ export const appQuerySchema = z.object({
   /** Saved query this one was copied from (library), if any. */
   sourceQueryId: z.uuid().nullable().default(null),
   cacheTtlSeconds: z.number().int().min(0).max(86_400).default(0),
+  /**
+   * v2: where each parameter value comes from. Missing entry = the variable of
+   * the same name (filters, URL). A binding reads widgets or other queries,
+   * e.g. `{{tabela1.selectedRow.cliente_id}}` (chained filters).
+   */
+  paramBindings: z.record(z.string(), z.string().max(500)).default({}),
 })
 export type AppQuery = z.infer<typeof appQuerySchema>
 

@@ -36,5 +36,6 @@ export function querySnapshot(
     runMode: "auto",
     sourceQueryId: saved.id,
     cacheTtlSeconds: saved.cacheTtlSeconds,
+    paramBindings: {},
   }
 }

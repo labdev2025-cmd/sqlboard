@@ -24,6 +24,7 @@ function doc(): AppDocument {
     runMode: "auto",
     sourceQueryId: null,
     cacheTtlSeconds: 0,
+    paramBindings: {},
   })
   base.pages[0]!.widgets.push({
     id: "w1",
@@ -75,8 +76,23 @@ describe("schema do documento de tela", () => {
     expect(appDocumentSchema.safeParse(clash).success).toBe(false)
   })
 
-  it("migra (aplica no carregamento) e recusa versão futura", () => {
-    expect(migrateDocument(doc()).schemaVersion).toBe(1)
+  it("migra v1 → v2 (paramBindings) e recusa versão futura", () => {
+    expect(migrateDocument(doc()).schemaVersion).toBe(2)
+    const v1 = JSON.parse(JSON.stringify(doc())) as Record<string, unknown> & {
+      queries: Record<string, unknown>[]
+    }
+    v1.schemaVersion = 1
+    for (const q of v1.queries) delete q.paramBindings
+    ;(v1.queries[0]!.params as { default?: unknown }[])[0]!.default =
+      "{{tabela1.selectedRow.uf}}"
+    const migrated = migrateDocument(v1)
+    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.queries[0]!.paramBindings).toEqual({
+      uf: "{{tabela1.selectedRow.uf}}",
+    })
+    expect(migrated.queries[0]!.params[0]!.default).toBeNull()
+    // Stored snapshots are not rewritten: migration runs on load.
+    expect(v1.schemaVersion).toBe(1)
     expect(() => migrateDocument({ ...doc(), schemaVersion: 99 })).toThrow(
       /mais nova/
     )

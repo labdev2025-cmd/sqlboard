@@ -229,5 +229,6 @@ export function newQuery(doc: AppDocument, connectionId: string): AppQuery {
     runMode: "auto",
     sourceQueryId: null,
     cacheTtlSeconds: 0,
+    paramBindings: {},
   }
 }

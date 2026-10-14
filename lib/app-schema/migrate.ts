@@ -12,7 +12,35 @@ import {
 type RawDocument = Record<string, unknown> & { schemaVersion?: unknown }
 type Migration = (doc: RawDocument) => RawDocument
 
-export const MIGRATIONS: Record<number, Migration> = {}
+export const MIGRATIONS: Record<number, Migration> = {
+  /**
+   * v1 → v2: queries gain `paramBindings`. v1 always read each parameter from
+   * the variable of the same name; v2 keeps that as the default (empty map)
+   * and turns the old per-parameter `default` of list/multi parameters that
+   * pointed to `{{...}}` (never valid in v1) into explicit bindings.
+   */
+  1: (doc) => ({
+    ...doc,
+    queries: ((doc.queries as Record<string, unknown>[] | undefined) ?? []).map(
+      (query) => {
+        const params =
+          (query.params as { name: string; default?: unknown }[] | undefined) ??
+          []
+        const paramBindings: Record<string, string> = {}
+        for (const param of params) {
+          if (
+            typeof param.default === "string" &&
+            /^\{\{[^{}]+\}\}$/.test(param.default.trim())
+          ) {
+            paramBindings[param.name] = param.default.trim()
+            param.default = null
+          }
+        }
+        return { ...query, params, paramBindings }
+      }
+    ),
+  }),
+}
 
 export class DocumentVersionError extends Error {}
 

@@ -46,6 +46,7 @@ function documentWithQuery(id: string, name = "Vendas"): AppDocument {
     runMode: "auto",
     sourceQueryId: null,
     cacheTtlSeconds: 0,
+    paramBindings: {},
   })
   doc.pages[0]!.widgets.push({
     id: "tabela1",
