@@ -23,6 +23,7 @@ Design: **100% shadcn/ui**, conforme `docs/guides/UI.md`. Responsivo e acessíve
 - **SQL é o centro**, não um recurso escondido atrás de um editor visual.
 - **Parâmetros detectados e tipados automaticamente**, com **cláusulas opcionais** `[[ AND status = :status ]]`: se o parâmetro vier vazio, o trecho inteiro some (ideia do Metabase, a mais pedida em ferramentas SQL).
 - **"Gerar tela automática"**: a partir da query e dos tipos das colunas, propõe uma tela pronta (inputs para os parâmetros; data + número → gráfico de linha; categoria + número → barras; uma linha numérica → KPI; resto → tabela). O usuário só ajusta.
+- **"Melhorar com IA" por copiar e colar**: um clique copia um prompt pronto (instruções + contexto do banco + a query) para colar em qualquer IA (ChatGPT, Claude, Codex…); a resposta, só com a query melhorada, é colada de volta, comparada com a original e aplicada. Sem integração, sem chave de API, funciona com qualquer IA (§5.4).
 - **Visual bonito sem configurar nada** (shadcn), claro e escuro.
 - **Leve e auto-hospedável**: um container da aplicação + um Postgres de metadados.
 
@@ -193,6 +194,26 @@ O sqlboard executa SQL escrito por pessoas contra bancos reais. Segurança aqui 
 - **Auditoria** de execuções: usuário, tela/query, hash do SQL, parâmetros (com opção de mascarar), duração, linhas, erro. Tela de consulta da auditoria para admin.
 
 ---
+
+### 4.5 Melhorar query com IA externa (copiar e colar)
+
+No editor SQL (F2), ao lado de Executar, um botão **"Melhorar com IA"** abre um `Dialog` com duas abas:
+
+**1. Copiar prompt.** Monta um texto pronto para colar em qualquer IA de chat, com:
+- **Instruções** (em pt-BR): melhorar desempenho, legibilidade e correção **sem mudar o resultado** (mesmas colunas, mesmos nomes/aliases, mesma ordem, mesmas linhas); manter o dialeto; manter **exatamente** os parâmetros (`:nome`/`{{nome}}`) e as cláusulas opcionais `[[ ... ]]`; um único comando, somente leitura; **responder SOMENTE com a query final dentro de um bloco ```sql```, sem explicações**.
+- **Contexto** (cada item com caixa de seleção para incluir/omitir, todos ligados por padrão exceto o plano): banco e versão (ex.: `select version()`), tabelas e views referenciadas com colunas, tipos, chaves primárias/estrangeiras e **índices** (da introspecção), parâmetros com tipos, métricas da última execução (tempo, linhas, truncado) e, opcional, o plano de `EXPLAIN` **sem** `ANALYZE` (não executa a query) obtido dentro da mesma transação somente leitura.
+- **A query** ao final, num bloco ```sql```.
+- **Nunca** incluir linhas de dados do resultado, credenciais, host ou nome da conexão.
+- Ações: **Copiar** (Clipboard API, com toast de confirmação), **Baixar .txt** e o texto visível/selecionável num campo somente leitura (alternativa quando a área de transferência não estiver disponível, ex.: fora de HTTPS).
+
+**2. Colar query melhorada.** Campo para colar a resposta da IA:
+- Extrai a query do primeiro bloco ```sql``` (ou usa o texto inteiro se não houver bloco).
+- Valida: um único comando, mesmo conjunto de parâmetros e cláusulas opcionais da original (avisa sobre parâmetros que sumiram ou surgiram).
+- Mostra o **diff** original × melhorada (`@codemirror/merge`).
+- **Comparar execução**: roda as duas com os mesmos parâmetros (mesmas proteções de §4.2) e mostra tempo, quantidade de linhas, colunas e se os resultados são **idênticos** (comparação por hash das linhas dentro do limite; avisa quando o limite impede a conclusão).
+- **Aplicar** substitui o SQL no editor (desfazer disponível); ao salvar, a versão anterior fica no histórico da query.
+
+O texto-modelo do prompt fica num módulo próprio (`src/lib/ai-prompt/`), testado (snapshot e casos sem índices, sem parâmetros, com `[[ ]]`) e sem dependências de React.
 
 ## 5. Documento de tela (formato persistido)
 

@@ -33,7 +33,7 @@ Entregas:
 - [ ] CRUD de conexões PostgreSQL (admin): host, porta, banco, usuário, senha, SSL, timeout e limite de linhas padrão.
 - [ ] Senha criptografada com AES-256-GCM (`SQLBOARD_ENCRYPTION_KEY`), nunca devolvida ao navegador.
 - [ ] "Testar conexão" com mensagem de erro traduzida.
-- [ ] Introspecção de schema (schemas, tabelas, colunas, tipos, comentários) com cache por conexão e botão de atualizar; navegador de schema.
+- [ ] Introspecção de schema (schemas, tabelas, views, colunas, tipos, comentários, chaves primárias/estrangeiras e índices) com cache por conexão e botão de atualizar; navegador de schema.
 - [ ] Permissão por conexão (quais usuários/editores podem usar).
 - [ ] Banco de demonstração `sqlboard_demo` com dados fictícios e usuário somente leitura; conexão de demo criada pelo seed em dev.
 - [ ] Aviso na tela de cadastro recomendando usuário de banco só com SELECT.
@@ -55,11 +55,14 @@ Entregas:
 - [ ] Execução segura conforme `PROMPT.md` §4.2: protocolo estendido, READ ONLY, timeouts, cursor com limite e indicação de truncado, cancelamento.
 - [ ] Resultado em Data Table (tipos formatados, ordenação, paginação, busca, colunas redimensionáveis) + tempo de execução e quantidade de linhas.
 - [ ] Auditoria das execuções e tela de auditoria para admin.
+- [ ] "Melhorar com IA" (`PROMPT.md` §4.5): copiar prompt pronto (instruções + contexto opcional + query) para a área de transferência ou .txt; colar a resposta, extrair o SQL, validar parâmetros, ver diff, comparar execução das duas versões e aplicar.
+- [ ] Histórico de versões da query salva (restaurar versão anterior).
 
 Critérios de aceite:
 - Testes do tokenizador cobrindo strings, identificadores, comentários, dollar-quoting, `::`, `:=`, parâmetro repetido.
 - Testes contra Postgres real: dois comandos rejeitados, escrita rejeitada, timeout, truncamento, cancelamento, precisão de `numeric`/`int8`.
 - E2E: escrever query com parâmetro, preencher, executar, ver resultado; cancelar query lenta (`pg_sleep`).
+- Testes do prompt de IA: contém instruções, contexto selecionado e a query; nunca contém linhas de dados nem credenciais. E2E: copiar prompt, colar resposta com bloco ```sql```, ver diff, comparar (resultados idênticos detectados) e aplicar.
 
 ---
 
