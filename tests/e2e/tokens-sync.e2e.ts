@@ -23,9 +23,11 @@ let appId = ""
 test.describe("tokens, MCP e versionamento em git", () => {
   test.use({ storageState: storageFor("editor") })
 
-  test("cria token pela tela e usa no MCP", async ({ page, baseURL }) => {
+  test("cria token pela tela e usa no MCP", async ({ page, baseURL }, info) => {
     await page.goto("/settings/tokens")
-    await expect(page.getByText("Nenhum token")).toBeVisible()
+    if (info.retry === 0) {
+      await expect(page.getByText("Nenhum token")).toBeVisible()
+    }
     await page.getByRole("button", { name: "Novo token" }).click()
     const dialog = page.getByRole("dialog", { name: "Novo token" })
     await dialog.getByLabel("Nome").fill("Agente de testes")

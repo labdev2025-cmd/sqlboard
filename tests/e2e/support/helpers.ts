@@ -30,6 +30,16 @@ export const storageFor = (key: UserKey) => `tests/e2e/.auth/${key}.json`
 
 /** Fails on serious or critical axe violations (WCAG 2.x A/AA rules). */
 export async function expectAccessible(page: Page, exclude: string[] = []) {
+  // Colors read mid-transition (dialog fade-in, overlay) give false contrast
+  // failures on slower CI machines: wait for running animations first.
+  await page.waitForFunction(() =>
+    document.getAnimations().every(
+      (animation) =>
+        animation.playState !== "running" ||
+        // Spinners and skeletons loop forever; they never settle.
+        animation.effect?.getComputedTiming().iterations === Infinity
+    )
+  )
   let builder = new AxeBuilder({ page }).withTags([
     "wcag2a",
     "wcag2aa",

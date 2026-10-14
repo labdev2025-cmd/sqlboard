@@ -28,8 +28,17 @@ test.describe("ações de escrita (admin cadastra)", () => {
         purpose: "write",
       },
     })
-    expect(created.status()).toBe(201)
-    const connection = await created.json()
+    // 409 on a CI retry: reuse the connection from the first attempt.
+    expect([201, 409]).toContain(created.status())
+    const connection =
+      created.status() === 201
+        ? await created.json()
+        : (
+            (await (await page.request.get("/api/connections")).json()) as {
+              id: string
+              name: string
+            }[]
+          ).find((c) => c.name === "Loja escrita")!
     const people = (await (await page.request.get("/api/users")).json()) as {
       id: string
       email: string
@@ -38,6 +47,17 @@ test.describe("ações de escrita (admin cadastra)", () => {
     await page.request.put(`/api/connections/${connection.id}/access`, {
       data: { userIds: [editor.id] },
     })
+
+    // A CI retry starts from the first attempt's leftovers.
+    const existing = (await (
+      await page.request.get("/api/actions")
+    ).json()) as {
+      id: string
+      name: string
+    }[]
+    for (const action of existing.filter((a) => a.name === actionName)) {
+      await page.request.delete(`/api/actions/${action.id}`)
+    }
 
     await page.goto("/actions")
     await page.getByRole("button", { name: "Nova ação" }).click()
