@@ -9,5 +9,5 @@ No MySQL, `SELECT SLEEP(n)` interrompido por `KILL QUERY` ou por `max_execution_
 
 **Problema/Contexto:** com só o limite do servidor, cancelamento e timeout poderiam aparecer como sucesso no MySQL 8 (testado localmente só em MariaDB 10.11).
 **Por que importa:** o usuário veria um resultado parcial ou falso em vez de "cancelado"/"tempo esgotado".
-**Como aplicar:** `server/datasources/mysql.ts` liga um timer no cliente que faz `KILL QUERY`, e no fim do comando verifica as flags `cancelled`/`timedOut` antes de devolver o resultado.
-**Evidência:** documentação do MySQL (função SLEEP); teste "interrompe por timeout e por cancelamento" em `tests/integration/mysql-adapter.test.ts` roda no CI com MySQL 8.4.
+**Como aplicar:** `server/datasources/mysql.ts` liga um timer no cliente que faz `KILL QUERY`, e no fim do comando verifica as flags `cancelled`/`timedOut` antes de devolver o resultado. O limite do servidor fica 1 s **depois** do timer do cliente (só como reserva): com os dois iguais, o MySQL 8.4 interrompia o SLEEP primeiro e o resultado voltava como sucesso.
+**Evidência:** documentação do MySQL (função SLEEP); teste "interrompe por timeout e por cancelamento" em `tests/integration/mysql-adapter.test.ts` falhou no CI run 20 (MySQL 8.4, `durationMs: 502`, linha `1`) com limites iguais e passa com o servidor como reserva.

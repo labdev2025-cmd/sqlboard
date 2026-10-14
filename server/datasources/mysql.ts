@@ -239,12 +239,16 @@ export class MysqlAdapter implements DataSourceAdapter {
       onConnection?.(connection)
       const flavor = await this.detectFlavor(connection)
       const ms = clampMs(timeoutMs)
-      // Integers we control, never user text.
+      // Integers we control, never user text. The server limit is a
+      // backstop one second after the client timer: MySQL ends an
+      // interrupted SLEEP() silently, so the client timer (which flags the
+      // run as timed out) must fire first.
+      const backstop = ms + 1000
       await this.run(
         connection,
         flavor === "mariadb"
-          ? `SET SESSION max_statement_time = ${ms / 1000}`
-          : `SET SESSION max_execution_time = ${ms}`
+          ? `SET SESSION max_statement_time = ${backstop / 1000}`
+          : `SET SESSION max_execution_time = ${backstop}`
       )
       await this.run(
         connection,
