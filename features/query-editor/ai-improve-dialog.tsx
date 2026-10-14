@@ -68,7 +68,7 @@ const INCLUDE_LABELS: Record<keyof PromptInclude, string> = {
   tables: "Tabelas e views referenciadas (colunas, chaves e índices)",
   params: "Parâmetros e tipos",
   metrics: "Métricas da última execução",
-  plan: "Plano de execução (EXPLAIN sem ANALYZE)",
+  plan: "Plano de execução (EXPLAIN sem ANALYZE; pode mostrar os valores dos parâmetros)",
 }
 
 type CompareState =

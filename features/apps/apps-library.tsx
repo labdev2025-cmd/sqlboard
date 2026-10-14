@@ -379,7 +379,7 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {apps.data.map((app) => (
             <li key={app.id}>
-              <Card className="relative h-full">
+              <Card className="relative h-full has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50">
                 <CardHeader>
                   <CardTitle className="truncate">
                     <Link
@@ -388,7 +388,7 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
                           ? `/apps/${app.id}/edit`
                           : `/apps/${app.id}`
                       }
-                      className="outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
+                      className="inline-block min-h-6 max-w-full truncate align-middle leading-6 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
                     >
                       {app.name}
                     </Link>
