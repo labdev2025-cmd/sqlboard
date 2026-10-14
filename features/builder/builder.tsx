@@ -78,6 +78,7 @@ import { useAppRuntime, type QueryRunner } from "../app-runtime/use-app-runtime"
 import { Canvas } from "./canvas"
 import { Palette } from "./palette"
 import { PropertiesPanel } from "./properties-panel"
+import { AiScreenDialog } from "./ai-screen-dialog"
 import { PublishDialog, ShareDialog, VersionsPanel } from "./publish"
 import { LibraryDialog, QueriesList, QueryDialog } from "./queries-panel"
 import {
@@ -693,6 +694,13 @@ export function Builder({
               <SaveIcon data-icon="inline-start" />
               Salvar
             </Button>
+            <AiScreenDialog
+              doc={doc}
+              onApply={(next) => {
+                change(() => next)
+                setPage(next.pages[0]!.id)
+              }}
+            />
             <VersionsPanel appId={app.id} onRestored={() => router.refresh()} />
             <ShareDialog appId={app.id} ownerId={app.ownerId} />
             {publishedVersion ? (

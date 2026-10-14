@@ -126,6 +126,6 @@ Critérios de aceite:
 Entregas (implemente na ordem; cada uma com as mesmas exigências de segurança e testes das fases anteriores):
 - [x] Agendamento de queries/telas com envio por e-mail (CSV/PDF).
 - [x] Ações com escrita controlada: formulários com INSERT/UPDATE explícitos, conexão separada de escrita, prévia, confirmação, transação e auditoria.
-- [ ] Import/export de apps em JSON (e versionamento em git).
-- [ ] Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.
+- [x] Import/export de apps em JSON (e versionamento em git).
+- [x] Servidor MCP para agentes criarem/editarem telas; geração de tela por IA.
 - [ ] Dockerfile de produção e guia de deploy.
