@@ -91,7 +91,8 @@ export function decryptSecret(envelope: string, ring: KeyRing): string {
     const decipher = createDecipheriv(
       ALGORITHM,
       key,
-      Buffer.from(ivText, "base64url")
+      Buffer.from(ivText, "base64url"),
+      { authTagLength: 16 }
     )
     decipher.setAuthTag(Buffer.from(tagText, "base64url"))
     return Buffer.concat([

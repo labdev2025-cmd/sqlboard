@@ -6,6 +6,8 @@ import type { Cell, QueryResult } from "@/lib/data-types"
 
 /** Neutralizes spreadsheet formulas (CSV/Excel injection). */
 export function safeSpreadsheetText(value: string) {
+  // Plain numbers ("-5", "-12.30" from bigint/numeric) are not formulas.
+  if (/^-\d+(\.\d+)?$/.test(value)) return value
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
 }
 

@@ -474,13 +474,19 @@ export async function restoreAppVersion(
   id: string,
   version: number
 ) {
-  await getAppAccess(user, id, "edit")
+  const { app } = await getAppAccess(user, id, "edit")
   const [row] = await db
     .select()
     .from(appVersions)
     .where(and(eq(appVersions.appId, id), eq(appVersions.version, version)))
   if (!row) throw notFound("Versão não encontrada.")
   const document = migrateDocument(row.document)
+  // Same rule as saveDraft: bringing back an older query is a change to it.
+  for (const query of changedQueries(safeMigrate(app.draft), document)) {
+    if (!(await canUseConnection(user, query.connectionId))) {
+      throw forbidden(`Você não tem acesso à conexão da query “${query.name}”.`)
+    }
+  }
   await db
     .update(apps)
     .set({

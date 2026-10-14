@@ -333,7 +333,8 @@ export function ConnectionForm({
                 />
                 {connection?.hasPassword ? (
                   <FieldDescription>
-                    A senha nunca é exibida.{" "}
+                    A senha nunca é exibida; ao mudar servidor, porta, usuário
+                    ou SSL, digite-a de novo.{" "}
                     <Button
                       type="button"
                       variant="link"

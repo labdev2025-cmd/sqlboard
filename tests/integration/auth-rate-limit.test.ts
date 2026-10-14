@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest"
 import { auth } from "@/server/auth/auth"
 import { db } from "@/server/db/client"
 import { rateLimit } from "@/server/db/schema"
+import { createUserAccount } from "@/server/services/users"
 
-function signIn(ip: string, email = "ninguem@exemplo.test") {
+function signIn(
+  ip: string,
+  email = "ninguem@exemplo.test",
+  password = "senha-errada-123"
+) {
   return auth.handler(
     new Request("http://localhost:3000/api/auth/sign-in/email", {
       method: "POST",
@@ -15,7 +20,7 @@ function signIn(ip: string, email = "ninguem@exemplo.test") {
       },
       body: JSON.stringify({
         email,
-        password: "senha-errada-123",
+        password,
       }),
     })
   )
@@ -42,5 +47,20 @@ describe("limite de tentativas de login", () => {
     }
     expect(statuses.slice(0, 20).every((s) => s === 401)).toBe(true)
     expect(statuses[20]).toBe(429)
+  })
+
+  it("só falhas contam para a conta, e um login certo zera o contador", async () => {
+    const email = `dono-${Date.now()}@exemplo.test`
+    const password = "senha-certa-123"
+    await createUserAccount({ name: "Dono", email, password, role: "viewer" })
+    for (let i = 0; i < 19; i++) {
+      expect((await signIn(`192.0.2.${100 + i}`, email)).status).toBe(401)
+    }
+    expect((await signIn("198.51.100.20", email, password)).status).toBe(200)
+    // The counter restarted: 20 more failures are needed to lock again.
+    for (let i = 0; i < 19; i++) {
+      expect((await signIn(`192.0.2.${150 + i}`, email)).status).toBe(401)
+    }
+    expect((await signIn("198.51.100.21", email, password)).status).toBe(200)
   })
 })

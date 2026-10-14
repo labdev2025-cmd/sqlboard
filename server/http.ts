@@ -44,6 +44,10 @@ export function errorResponse(error: unknown): Response {
       { status: 400 }
     )
   }
+  if (pgCode(error) === "22P02") {
+    // Malformed id (e.g. not a UUID) in the URL: nothing can match it.
+    return Response.json({ error: "Item não encontrado." }, { status: 404 })
+  }
   if (isUniqueViolation(error)) {
     return Response.json(
       { error: "Já existe um item com esse nome." },
@@ -57,11 +61,13 @@ export function errorResponse(error: unknown): Response {
   )
 }
 
-function isUniqueViolation(error: unknown) {
+function pgCode(error: unknown) {
   const cause = (error as { cause?: { code?: string } })?.cause
-  return (
-    (error as { code?: string })?.code === "23505" || cause?.code === "23505"
-  )
+  return (error as { code?: string })?.code ?? cause?.code
+}
+
+function isUniqueViolation(error: unknown) {
+  return pgCode(error) === "23505"
 }
 
 type Handler<C> = (ctx: {

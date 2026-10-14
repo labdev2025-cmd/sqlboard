@@ -111,35 +111,20 @@ export function compileReadQuery(
   }
 }
 
-/**
- * Runs a read query with every protection of PROMPT.md §4.2 (delegated to the
- * adapter), caps the row limit, records the audit trail and supports cancel.
- * Permission checks happen in the caller (services), before this function.
- */
-export async function executeQuery(
-  request: ExecuteRequest
-): Promise<ExecuteResponse> {
-  const { connection } = request
-  if (connection.purpose !== "read") {
-    throw badRequest("Esta conexão é só para ações de escrita.")
-  }
-  const dialect = connection.dialect as SqlDialect
-  const executionId = request.executionId ?? crypto.randomUUID()
-  const limit = Math.min(
-    Math.max(1, request.maxRows ?? connection.defaultRowLimit),
-    connection.maxRowLimit
-  )
+type AuditEntry = Partial<typeof queryExecutions.$inferInsert> & {
+  status: string
+}
+
+/** Records one row of the execution audit trail for `request` (never throws). */
+async function auditorFor(request: ExecuteRequest) {
   const hash = sqlHash(request.sql)
   const mask = await shouldMaskParams()
-  const audit = async (
-    entry: Partial<typeof queryExecutions.$inferInsert> & { status: string },
-    params: CompiledQuery["params"] = {}
-  ) => {
+  return async (entry: AuditEntry, params: CompiledQuery["params"] = {}) => {
     await db
       .insert(queryExecutions)
       .values({
         userId: request.user?.id ?? null,
-        connectionId: connection.id,
+        connectionId: request.connection.id,
         appId: request.appId ?? null,
         savedQueryId: request.savedQueryId ?? null,
         queryName: request.queryName ?? "",
@@ -150,6 +135,31 @@ export async function executeQuery(
       })
       .catch((error) => console.error("[audit]", error))
   }
+}
+
+function assertReadConnection(connection: ExecuteRequest["connection"]) {
+  if (connection.purpose !== "read") {
+    throw badRequest("Esta conexão é só para ações de escrita.")
+  }
+}
+
+/**
+ * Runs a read query with every protection of PROMPT.md §4.2 (delegated to the
+ * adapter), caps the row limit, records the audit trail and supports cancel.
+ * Permission checks happen in the caller (services), before this function.
+ */
+export async function executeQuery(
+  request: ExecuteRequest
+): Promise<ExecuteResponse> {
+  const { connection } = request
+  assertReadConnection(connection)
+  const dialect = connection.dialect as SqlDialect
+  const executionId = request.executionId ?? crypto.randomUUID()
+  const limit = Math.min(
+    Math.max(1, request.maxRows ?? connection.defaultRowLimit),
+    connection.maxRowLimit
+  )
+  const audit = await auditorFor(request)
 
   let compiled: CompiledQuery
   try {
@@ -231,20 +241,38 @@ export async function executeQuery(
   }
 }
 
-/** EXPLAIN (no ANALYZE) inside the same read-only protections. */
+/** EXPLAIN (no ANALYZE) inside the same read-only protections; audited. */
 export async function explainQuery(request: ExecuteRequest) {
+  assertReadConnection(request.connection)
   const dialect = request.connection.dialect as SqlDialect
-  const compiled = compileReadQuery(
-    request.sql,
-    request.values ?? {},
-    request.params,
-    dialect
-  )
+  const audit = await auditorFor(request)
+  let compiled: CompiledQuery
   try {
-    return await adapterFor(request.connection).explain(compiled, {
+    compiled = compileReadQuery(
+      request.sql,
+      request.values ?? {},
+      request.params,
+      dialect
+    )
+  } catch (error) {
+    await audit({ status: "error", error: (error as Error).message })
+    throw error
+  }
+  const started = performance.now()
+  try {
+    const plan = await adapterFor(request.connection).explain(compiled, {
       timeoutMs: request.connection.statementTimeoutMs,
     })
+    await audit(
+      { status: "ok", durationMs: Math.round(performance.now() - started) },
+      compiled.params
+    )
+    return plan
   } catch (error) {
+    await audit(
+      { status: "error", error: (error as Error).message },
+      compiled.params
+    )
     if (error instanceof DataSourceError) throw badRequest(error.message)
     throw error
   }

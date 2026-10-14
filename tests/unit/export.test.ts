@@ -34,6 +34,13 @@ describe("exportação", () => {
     expect(safeSpreadsheetText("=1+1")).toBe("'=1+1")
     expect(safeSpreadsheetText("+55 85")).toBe("'+55 85")
     expect(safeSpreadsheetText("normal")).toBe("normal")
+    // Numbers that arrive as strings (bigint, numeric) stay numbers…
+    expect(safeSpreadsheetText("-5")).toBe("-5")
+    expect(safeSpreadsheetText("-12.30")).toBe("-12.30")
+    // …but anything else starting with "-" is still neutralized.
+    expect(safeSpreadsheetText("-1+cmd|' /C calc'!A0")).toBe(
+      "'-1+cmd|' /C calc'!A0"
+    )
   })
 
   it("gera XLSX válido", async () => {

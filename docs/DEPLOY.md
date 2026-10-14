@@ -75,7 +75,7 @@ sqlboard.exemplo.com {
 
 Repasse os cabeçalhos `Host` e `X-Forwarded-*` (padrão no Caddy). As respostas já saem com `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff` e `Referrer-Policy`.
 
-O limite de tentativas de login (10 por minuto por IP e 20 a cada 15 minutos por conta, guardado no banco) depende do IP real do cliente. Garanta que só o proxy alcança a porta 3000 e configure `SQLBOARD_IP_HEADERS` com o cabeçalho que ele sobrescreve (ou `SQLBOARD_TRUSTED_PROXIES` com os endereços dele). Sem isso, um cliente pode forjar o cabeçalho e escapar do limite por IP (o limite por conta continua valendo).
+O limite de tentativas de login (10 por minuto por IP e 20 senhas erradas a cada 15 minutos por conta, zerado no primeiro login certo, guardado no banco) depende do IP real do cliente. Garanta que só o proxy alcança a porta 3000 e configure `SQLBOARD_IP_HEADERS` com o cabeçalho que ele sobrescreve (ou `SQLBOARD_TRUSTED_PROXIES` com os endereços dele). Sem isso, um cliente pode forjar o cabeçalho e escapar do limite por IP (o limite por conta continua valendo).
 
 ## 5. Conexões com bancos da empresa
 

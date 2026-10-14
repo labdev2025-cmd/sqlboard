@@ -197,6 +197,9 @@ describe("telas: permissões no servidor", () => {
     expect(
       (await getAppForEdit(owner, appId)).document.queries[0]!.sql
     ).toContain("from loja.clientes")
+    // Restoring brings back an older query: same rule as saving it.
+    expect(await status(restoreAppVersion(editor2, appId, 2))).toBe(403)
+    await restoreAppVersion(editor2, appId, 1)
   })
 
   it("duplica e só o dono (ou admin) exclui", async () => {

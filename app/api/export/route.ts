@@ -10,6 +10,7 @@ import {
 } from "@/server/execution/export"
 import { readJson, route } from "@/server/http"
 import { getUsableConnection } from "@/server/services/connections"
+import { getSavedQuery } from "@/server/services/queries"
 
 const schema = executeInputSchema.extend({
   format: z.enum(["csv", "xlsx"]).default("csv"),
@@ -21,6 +22,8 @@ export const POST = route(
   async ({ request, user }) => {
     const input = schema.parse(await readJson(request))
     const connection = await getUsableConnection(user, input.connectionId)
+    // The audit row may only point to a saved query the user can see.
+    if (input.savedQueryId) await getSavedQuery(user, input.savedQueryId)
     const result = await executeQuery({
       user,
       connection,

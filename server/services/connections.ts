@@ -138,6 +138,30 @@ function values(input: ReturnType<typeof connectionInputSchema.parse>) {
   }
 }
 
+/**
+ * The stored password only goes back to the same server, user and TLS
+ * setting. Otherwise an admin could point the connection at a host they
+ * control and receive the plaintext password: it must be typed again.
+ */
+function assertStoredPasswordTarget(
+  existing: ConnectionRow,
+  next: ReturnType<typeof values>,
+  input: ReturnType<typeof connectionInputSchema.parse>
+) {
+  if (!existing.passwordEnc || input.password || input.clearPassword) return
+  const moved =
+    existing.dialect !== next.dialect ||
+    existing.host !== next.host ||
+    (existing.port ?? null) !== (next.port ?? null) ||
+    existing.username !== next.username ||
+    existing.ssl !== next.ssl
+  if (moved) {
+    throw badRequest(
+      "Digite a senha de novo: o servidor, a porta, o usuário ou o SSL da conexão mudou."
+    )
+  }
+}
+
 export async function createConnection(
   user: CurrentUser,
   raw: ConnectionInput
@@ -165,6 +189,7 @@ export async function updateConnection(
   assertAdmin(user)
   const existing = await getConnectionRow(id)
   const input = connectionInputSchema.parse(raw)
+  assertStoredPasswordTarget(existing, values(input), input)
   const passwordEnc = input.clearPassword
     ? null
     : input.password
@@ -204,6 +229,7 @@ export async function testConnection(
   assertAdmin(user)
   const input = connectionInputSchema.parse(raw)
   const existing = id ? await getConnectionRow(id) : null
+  if (existing) assertStoredPasswordTarget(existing, values(input), input)
   const draft = {
     ...(existing ?? ({} as ConnectionRow)),
     ...values(input),

@@ -101,6 +101,26 @@ describe("permissões de conexão no servidor", () => {
     ).resolves.toEqual({ ok: true })
   })
 
+  it("senha guardada não vai para outro servidor, porta ou usuário", async () => {
+    const elsewhere = [
+      { host: "203.0.113.9" },
+      { port: 6543 },
+      { username: "outro" },
+      { ssl: "require" as const },
+    ]
+    for (const change of elsewhere) {
+      const input = { ...demoConnectionInput, password: undefined, ...change }
+      expect(await status(testConnection(admin, input, connectionId))).toBe(400)
+      expect(await status(updateConnection(admin, connectionId, input))).toBe(
+        400
+      )
+    }
+    // Typing the password again is fine.
+    await expect(
+      testConnection(admin, demoConnectionInput, connectionId)
+    ).resolves.toEqual({ ok: true })
+  })
+
   it("introspecção fica em cache por conexão", async () => {
     const first = await getSchema(editor, connectionId)
     const cached = await getSchema(editor, connectionId)

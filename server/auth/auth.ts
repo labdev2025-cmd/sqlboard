@@ -17,24 +17,41 @@ function list(value: string | undefined) {
   return items.length ? items : undefined
 }
 
-/** Per-account limit (on top of the per-IP one): 20 attempts per 15 min. */
+/**
+ * Per-account limit (on top of the per-IP one): 20 failed sign-ins per
+ * 15 min. Only failures count and a successful sign-in clears the counter,
+ * so requests with a known e-mail alone cannot keep the owner locked out.
+ */
 const ACCOUNT_WINDOW_MS = 15 * 60_000
-const ACCOUNT_MAX_ATTEMPTS = 20
+const ACCOUNT_MAX_FAILURES = 20
 
-async function attemptsForAccount(email: string) {
-  const now = Date.now()
-  const key = `account:${email.trim().toLowerCase()}`
+const accountKey = (email: string) => `account:${email.trim().toLowerCase()}`
+
+async function failuresForAccount(email: string) {
   const result = await db.execute<{ count: number }>(sql`
+    select count from rate_limit
+    where key = ${accountKey(email)}
+      and last_request >= ${Date.now() - ACCOUNT_WINDOW_MS}`)
+  return Number(result.rows[0]?.count ?? 0)
+}
+
+async function recordAccountFailure(email: string) {
+  const now = Date.now()
+  await db.execute(sql`
     insert into rate_limit (id, key, count, last_request)
-    values (${crypto.randomUUID()}, ${key}, 1, ${now})
+    values (${crypto.randomUUID()}, ${accountKey(email)}, 1, ${now})
     on conflict (key) do update set
       count = case when rate_limit.last_request < ${now - ACCOUNT_WINDOW_MS}
         then 1 else rate_limit.count + 1 end,
       last_request = case when rate_limit.last_request < ${now - ACCOUNT_WINDOW_MS}
-        then ${now} else rate_limit.last_request end
-    returning count`)
-  return Number(result.rows[0]?.count ?? 0)
+        then ${now} else rate_limit.last_request end`)
 }
+
+async function clearAccountFailures(email: string) {
+  await db.execute(sql`delete from rate_limit where key = ${accountKey(email)}`)
+}
+
+const accountLimitEnabled = () => process.env.SQLBOARD_AUTH_RATE_LIMIT !== "off"
 
 async function claimBootstrapAdmin() {
   const claimed = await db
@@ -153,12 +170,12 @@ export const auth = betterAuth({
     // Public sign-up only exists to create the first admin. Later accounts
     // are created by an admin (server/services/users.ts).
     before: createAuthMiddleware(async (ctx) => {
-      if (
-        ctx.path === "/sign-in/email" &&
-        process.env.SQLBOARD_AUTH_RATE_LIMIT !== "off"
-      ) {
+      if (ctx.path === "/sign-in/email" && accountLimitEnabled()) {
         const email = String((ctx.body as { email?: unknown })?.email ?? "")
-        if (email && (await attemptsForAccount(email)) > ACCOUNT_MAX_ATTEMPTS) {
+        if (
+          email &&
+          (await failuresForAccount(email)) >= ACCOUNT_MAX_FAILURES
+        ) {
           throw new APIError("TOO_MANY_REQUESTS", {
             message:
               "Muitas tentativas para esta conta. Aguarde alguns minutos e tente de novo.",
@@ -171,6 +188,14 @@ export const auth = betterAuth({
             "Cadastro fechado. Peça a um administrador para criar sua conta.",
         })
       }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/email" || !accountLimitEnabled()) return
+      const email = String((ctx.body as { email?: unknown })?.email ?? "")
+      if (!email) return
+      const returned = ctx.context.returned
+      if (!(returned instanceof APIError)) await clearAccountFailures(email)
+      else if (returned.statusCode === 401) await recordAccountFailure(email)
     }),
   },
   plugins: [nextCookies()],
