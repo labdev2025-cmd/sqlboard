@@ -68,16 +68,16 @@ Critérios de aceite:
 
 ## F3 — Construtor de telas
 
-**Status:** pendente
+**Status:** concluída em 2026-10-14. Pendência real: navegadores além do Chromium e aparelhos reais não testados (ambiente só tem Chromium).
 
 Entregas:
-- [ ] Schema Zod do documento de tela (`schemaVersion` 1) e registro de widgets (`PROMPT.md` §5).
-- [ ] Editor: paleta, grade de 12 colunas (react-grid-layout v2) com arrastar/redimensionar, painel de propriedades gerado do schema, desfazer/refazer, autosave de rascunho, alternativa sem arrastar (teclado e campos numéricos).
-- [ ] Widgets do MVP (`PROMPT.md` §5.1) ligados a uma query da tela e aos seus parâmetros.
-- [ ] Sugestão de widget pelo tipo das colunas e botão "Gerar tela automática".
-- [ ] Modo visualização responsivo (empilha no celular), parâmetros no topo, URL com parâmetros.
-- [ ] Biblioteca de telas (`PROMPT.md` §5.0): cada tela com nome, descrição/finalidade e tags; lista com busca e filtros; criar, editar dados, duplicar, excluir (com confirmação). Descrição exibida no modo visualização.
-- [ ] Usar query da biblioteca numa tela (cópia com referência à origem) ou criar query direto na tela.
+- [x] Schema Zod do documento de tela (`schemaVersion` 1) e registro de widgets (`PROMPT.md` §5).
+- [x] Editor: paleta, grade de 12 colunas (react-grid-layout v2) com arrastar/redimensionar, painel de propriedades gerado do schema, desfazer/refazer, autosave de rascunho, alternativa sem arrastar (teclado e campos numéricos).
+- [x] Widgets do MVP (`PROMPT.md` §5.1) ligados a uma query da tela e aos seus parâmetros.
+- [x] Sugestão de widget pelo tipo das colunas e botão "Gerar tela automática".
+- [x] Modo visualização responsivo (empilha no celular), parâmetros no topo, URL com parâmetros.
+- [x] Biblioteca de telas (`PROMPT.md` §5.0): cada tela com nome, descrição/finalidade e tags; lista com busca e filtros; criar, editar dados, duplicar, excluir (com confirmação). Descrição exibida no modo visualização.
+- [x] Usar query da biblioteca numa tela (cópia com referência à origem) ou criar query direto na tela.
 
 Critérios de aceite:
 - Testes: validação do schema, sugestão por tipo de coluna, geração automática.
