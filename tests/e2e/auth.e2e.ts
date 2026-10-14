@@ -75,6 +75,9 @@ test.describe("layout", () => {
     await page.getByRole("menuitemradio", { name: "Escuro" }).click()
     await expect(page.locator("html")).toHaveClass(/dark/)
     await page.keyboard.press("Escape")
+    // Let the menu finish its exit transition (focus guards leave the DOM).
+    await expect(page.getByRole("menu")).toHaveCount(0)
+    await expect(page.locator("[data-base-ui-focus-guard]")).toHaveCount(0)
     await expectAccessible(page)
   })
 
