@@ -24,6 +24,12 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { api, errorMessage } from "@/lib/api-client"
@@ -128,11 +134,18 @@ export function SchemaBrowser({
           <AlertDescription>{errorMessage(schema.error)}</AlertDescription>
         </Alert>
       ) : tables.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          {term
-            ? "Nada encontrado."
-            : "Nenhuma tabela visível para este usuário."}
-        </p>
+        <Empty className="p-4">
+          <EmptyHeader>
+            <EmptyTitle>
+              {term ? "Nada encontrado" : "Nenhuma tabela visível"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {term
+                ? "Nenhuma tabela ou coluna corresponde à busca."
+                : "O usuário de banco desta conexão não enxerga tabelas nem views."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul
           className="flex min-h-0 flex-col overflow-y-auto text-sm"
@@ -182,41 +195,43 @@ export function SchemaBrowser({
                         {table.comment}
                       </p>
                     ) : null}
-                    <ul className="flex flex-col pb-2 pl-8">
+                    <ul className="flex flex-col pb-2 pl-6">
                       {table.columns.map((column) => (
-                        <li
-                          key={column.name}
-                          className="flex min-w-0 items-center gap-2 py-0.5"
-                        >
-                          {onInsert ? (
-                            <button
-                              type="button"
-                              className="truncate font-mono text-xs hover:underline focus-visible:underline"
-                              onClick={() => onInsert(column.name)}
-                              title={column.comment ?? undefined}
+                        <li key={column.name} className="flex flex-col">
+                          <div className="flex min-w-0 items-center gap-2">
+                            {onInsert ? (
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                className="min-w-0 justify-start font-mono"
+                                aria-label={`Inserir coluna ${column.name} no editor`}
+                                onClick={() => onInsert(column.name)}
+                              >
+                                <span className="truncate">{column.name}</span>
+                              </Button>
+                            ) : (
+                              <span className="truncate px-2 font-mono text-xs">
+                                {column.name}
+                              </span>
+                            )}
+                            {column.primaryKey ? (
+                              <KeyRoundIcon
+                                className="size-3 shrink-0 text-muted-foreground"
+                                aria-label="chave primária"
+                              />
+                            ) : null}
+                            <Badge
+                              variant="outline"
+                              className="ml-auto font-mono"
                             >
-                              {column.name}
-                            </button>
-                          ) : (
-                            <span
-                              className="truncate font-mono text-xs"
-                              title={column.comment ?? undefined}
-                            >
-                              {column.name}
-                            </span>
-                          )}
-                          {column.primaryKey ? (
-                            <KeyRoundIcon
-                              className="size-3 text-muted-foreground"
-                              aria-label="chave primária"
-                            />
+                              {column.type}
+                            </Badge>
+                          </div>
+                          {column.comment ? (
+                            <p className="px-2 pb-1 text-xs text-muted-foreground">
+                              {column.comment}
+                            </p>
                           ) : null}
-                          <Badge
-                            variant="outline"
-                            className="ml-auto font-mono"
-                          >
-                            {column.type}
-                          </Badge>
                         </li>
                       ))}
                     </ul>

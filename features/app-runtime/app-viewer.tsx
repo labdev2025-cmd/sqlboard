@@ -2,12 +2,19 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ChevronDownIcon, InfoIcon, PencilIcon, PlayIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  InfoIcon,
+  LayoutGridIcon,
+  PencilIcon,
+  PlayIcon,
+} from "lucide-react"
 import { Responsive, useContainerWidth } from "react-grid-layout"
 
 import "react-grid-layout/css/styles.css"
 
 import { PageHeader } from "@/components/app-shell/page-header"
+import { EmptyState } from "@/components/app-shell/states"
 import { ParamsForm } from "@/components/params/param-inputs"
 import {
   ExportMenu,
@@ -275,9 +282,11 @@ export function AppViewer({
         ) : null}
 
         {page.widgets.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Esta página ainda não tem componentes.
-          </p>
+          <EmptyState
+            icon={LayoutGridIcon}
+            title="Página sem componentes"
+            description="Esta página ainda não tem componentes."
+          />
         ) : (
           <PageGrid
             page={page}
@@ -286,7 +295,11 @@ export function AppViewer({
                 widget={widget}
                 scope={runtime.scope}
                 toolbar={
-                  <ExportMenu widget={widget} onExport={actions.exportQuery} />
+                  <ExportMenu
+                    widget={widget}
+                    scope={runtime.scope}
+                    onExport={actions.exportQuery}
+                  />
                 }
               >
                 <WidgetContent

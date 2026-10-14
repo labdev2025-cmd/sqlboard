@@ -23,6 +23,7 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -210,22 +211,23 @@ function PropControl({
             spellCheck={false}
           />
           {variables.length ? (
-            <div
-              className="flex flex-wrap gap-1"
+            <ToggleGroup
+              value={variables.includes(String(value)) ? [String(value)] : []}
+              onValueChange={(next) => {
+                const picked = (next as string[])[0]
+                if (picked) onChange(picked)
+              }}
+              variant="outline"
+              size="sm"
+              className="flex-wrap"
               aria-label="Parâmetros das queries"
             >
               {variables.map((v) => (
-                <Button
-                  key={v}
-                  type="button"
-                  size="xs"
-                  variant={v === value ? "secondary" : "outline"}
-                  onClick={() => onChange(v)}
-                >
+                <ToggleGroupItem key={v} value={v} className="font-mono">
                   :{v}
-                </Button>
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
           ) : null}
         </div>
       )

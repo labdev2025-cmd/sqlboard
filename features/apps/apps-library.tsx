@@ -74,6 +74,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { TagFilter } from "@/components/tag-filter"
 import { useDebounced } from "@/hooks/use-debounced"
 import { api, errorMessage } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
@@ -340,27 +341,7 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
           </div>
         ) : null}
       </div>
-      {tags.length ? (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="group"
-          aria-label="Filtrar por tag"
-        >
-          {tags.map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={tag === item}
-              onClick={() => setTag(tag === item ? null : item)}
-              className="rounded-4xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <Badge variant={tag === item ? "default" : "outline"}>
-                #{item}
-              </Badge>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <TagFilter tags={tags} value={tag} onChange={setTag} />
 
       {apps.isPending ? (
         <div

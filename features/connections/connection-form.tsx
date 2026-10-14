@@ -334,15 +334,17 @@ export function ConnectionForm({
                 {connection?.hasPassword ? (
                   <FieldDescription>
                     A senha nunca é exibida.{" "}
-                    <button
+                    <Button
                       type="button"
-                      className="underline underline-offset-4"
+                      variant="link"
+                      size="sm"
+                      className="h-auto px-0"
                       onClick={() => set("clearPassword", !state.clearPassword)}
                     >
                       {state.clearPassword
                         ? "Manter a senha atual"
                         : "Remover a senha"}
-                    </button>
+                    </Button>
                   </FieldDescription>
                 ) : null}
               </Field>

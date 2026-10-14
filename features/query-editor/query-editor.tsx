@@ -453,7 +453,7 @@ export function QueryEditor({
             </DialogHeader>
             <FieldGroup>
               {save.isError ? (
-                <Alert variant="destructive">
+                <Alert variant="destructive" role="alert">
                   <AlertDescription>
                     {errorMessage(save.error)}
                   </AlertDescription>

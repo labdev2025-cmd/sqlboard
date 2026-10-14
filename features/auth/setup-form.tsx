@@ -15,6 +15,7 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
@@ -27,15 +28,18 @@ export function SetupForm() {
   const router = useRouter()
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
+  const [mismatch, setMismatch] = React.useState(false)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const password = String(form.get("password"))
     if (password !== String(form.get("confirm"))) {
-      setError("As senhas não conferem.")
+      setMismatch(true)
+      event.currentTarget.querySelector<HTMLInputElement>("#confirm")?.focus()
       return
     }
+    setMismatch(false)
     setPending(true)
     setError(null)
     const { error } = await authClient.signUp.email({
@@ -95,7 +99,7 @@ export function SetupForm() {
               />
               <FieldDescription>Mínimo de 8 caracteres.</FieldDescription>
             </Field>
-            <Field>
+            <Field data-invalid={mismatch || undefined}>
               <FieldLabel htmlFor="confirm">Confirmar senha</FieldLabel>
               <Input
                 id="confirm"
@@ -104,7 +108,15 @@ export function SetupForm() {
                 autoComplete="new-password"
                 minLength={8}
                 required
+                aria-invalid={mismatch || undefined}
+                aria-describedby={mismatch ? "confirm-error" : undefined}
+                onChange={() => setMismatch(false)}
               />
+              {mismatch ? (
+                <FieldError id="confirm-error">
+                  As senhas não conferem.
+                </FieldError>
+              ) : null}
             </Field>
             <Field>
               <Button type="submit" disabled={pending}>

@@ -334,7 +334,7 @@ export function WidgetContent({
     }
     case "date-range":
       return (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2 @xs:grid-cols-2">
           {(["paramStart", "paramEnd"] as const).map((key, i) => (
             <ParamInput
               key={key}
@@ -438,7 +438,7 @@ export function WidgetFrame({
           ) : null}
         </header>
       ) : null}
-      <div className="min-h-0 flex-1">{children}</div>
+      <div className="@container min-h-0 flex-1">{children}</div>
     </section>
   )
 }
@@ -446,15 +446,18 @@ export function WidgetFrame({
 /** "Exportar" menu for widgets bound to a query (`{{q.data}}`). */
 export function ExportMenu({
   widget,
+  scope,
   onExport,
 }: {
   widget: Widget
+  scope: BindingScope
   onExport: (query: string, format: "csv" | "xlsx") => void
 }) {
   const source = /^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\.data\s*\}\}$/.exec(
     widget.bindings?.data ?? ""
   )?.[1]
   if (!source || !WIDGET_INFO[widget.type].usesData) return null
+  const title = "title" in widget.props ? text(widget.props.title, scope) : ""
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -462,7 +465,7 @@ export function ExportMenu({
           <Button
             size="icon-xs"
             variant="ghost"
-            aria-label={`Exportar dados de ${widget.id}`}
+            aria-label={`Exportar dados de ${title || WIDGET_INFO[widget.type].label}`}
           />
         }
       >

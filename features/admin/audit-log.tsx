@@ -10,6 +10,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -149,6 +157,9 @@ export function AuditLog() {
                   <TableHead className="text-right">Duração</TableHead>
                   <TableHead>Hash do SQL</TableHead>
                   <TableHead>Parâmetros</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Detalhes</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -183,7 +194,6 @@ export function AuditLog() {
                               ? "warning"
                               : "destructive"
                         }
-                        title={row.error ?? undefined}
                       >
                         {row.status === "ok"
                           ? "sucesso"
@@ -212,6 +222,9 @@ export function AuditLog() {
                       title={JSON.stringify(row.params)}
                     >
                       {JSON.stringify(row.params)}
+                    </TableCell>
+                    <TableCell>
+                      <AuditDetails row={row} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -247,5 +260,44 @@ export function AuditLog() {
         </>
       )}
     </div>
+  )
+}
+
+function AuditDetails({ row }: { row: AuditRow }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={<Button variant="ghost" size="xs" />}
+        aria-label={`Detalhes da execução de ${new Date(row.createdAt).toLocaleString("pt-BR")}`}
+      >
+        Detalhes
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+        <PopoverHeader>
+          <PopoverTitle>Detalhes da execução</PopoverTitle>
+          <PopoverDescription>
+            {new Date(row.createdAt).toLocaleString("pt-BR")}
+          </PopoverDescription>
+        </PopoverHeader>
+        <dl className="flex flex-col gap-2 text-sm">
+          {row.error ? (
+            <div className="flex flex-col gap-0.5">
+              <dt className="font-medium">Erro</dt>
+              <dd className="text-destructive">{row.error}</dd>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-0.5">
+            <dt className="font-medium">Hash do SQL</dt>
+            <dd className="font-mono text-xs break-all">{row.sqlHash}</dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="font-medium">Parâmetros</dt>
+            <dd className="max-h-48 overflow-auto font-mono text-xs break-all whitespace-pre-wrap">
+              {JSON.stringify(row.params, null, 2)}
+            </dd>
+          </div>
+        </dl>
+      </PopoverContent>
+    </Popover>
   )
 }

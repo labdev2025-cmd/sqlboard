@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { TagFilter } from "@/components/tag-filter"
 import { useDebounced } from "@/hooks/use-debounced"
 import { api, errorMessage } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
@@ -81,27 +82,7 @@ export function QueriesLibrary() {
           <ToggleGroupItem value="mine">Minhas</ToggleGroupItem>
         </ToggleGroup>
       </div>
-      {tags.length ? (
-        <div
-          className="flex flex-wrap items-center gap-1.5"
-          aria-label="Filtrar por tag"
-          role="group"
-        >
-          {tags.map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={tag === item}
-              onClick={() => setTag(tag === item ? null : item)}
-              className="rounded-4xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <Badge variant={tag === item ? "default" : "outline"}>
-                #{item}
-              </Badge>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <TagFilter tags={tags} value={tag} onChange={setTag} />
       {queries.isPending ? (
         <div
           className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"

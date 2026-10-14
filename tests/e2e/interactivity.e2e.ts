@@ -224,7 +224,7 @@ test.describe("interatividade, versões e compartilhamento", () => {
       // Export the detail as CSV.
       const download = page.waitForEvent("download")
       await page
-        .getByRole("button", { name: "Exportar dados de tabela2" })
+        .getByRole("button", { name: "Exportar dados de Clientes da UF SP" })
         .click()
       await page.getByRole("menuitem", { name: "Exportar CSV" }).click()
       const file = await download

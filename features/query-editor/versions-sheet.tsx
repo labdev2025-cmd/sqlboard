@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HistoryIcon, RotateCcwIcon } from "lucide-react"
 
+import { EmptyState } from "@/components/app-shell/states"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -78,6 +79,12 @@ export function VersionsSheet({
                 {errorMessage(versions.error)}
               </AlertDescription>
             </Alert>
+          ) : versions.data.length === 0 ? (
+            <EmptyState
+              icon={HistoryIcon}
+              title="Nenhuma versão ainda"
+              description="Salve a query para registrar a primeira versão."
+            />
           ) : (
             versions.data.map((version, index) => (
               <article
