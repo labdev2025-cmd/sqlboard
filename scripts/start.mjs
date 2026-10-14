@@ -25,9 +25,24 @@ const port = process.argv.includes("-p")
   ? process.argv[process.argv.indexOf("-p") + 1]
   : (process.env.PORT ?? "3000")
 
+// The standalone server.js changes into its own directory, so relative data
+// paths are resolved here, against the project root.
+const dataPaths = {}
+for (const key of ["SQLBOARD_SQLITE_DIR", "SQLBOARD_OUTBOX_DIR"]) {
+  dataPaths[key] = path.resolve(
+    root,
+    process.env[key] ?? (key === "SQLBOARD_SQLITE_DIR" ? "data/sqlite" : ".data/outbox")
+  )
+}
+
 const child = spawn(process.execPath, [path.join(standalone, "server.js")], {
   stdio: "inherit",
-  env: { ...process.env, PORT: port, HOSTNAME: process.env.HOSTNAME ?? "0.0.0.0" },
+  env: {
+    ...process.env,
+    ...dataPaths,
+    PORT: port,
+    HOSTNAME: process.env.HOSTNAME ?? "0.0.0.0",
+  },
 })
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => child.kill(signal))

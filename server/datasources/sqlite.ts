@@ -169,8 +169,9 @@ export function resolveSqlitePath(
   file: string,
   baseDir = process.env.SQLBOARD_SQLITE_DIR ?? "data/sqlite"
 ) {
-  const base = path.resolve(baseDir)
-  const resolved = path.resolve(base, file)
+  // Runtime-configured directory: not a build input (keeps tracing scoped).
+  const base = path.resolve(/* turbopackIgnore: true */ baseDir)
+  const resolved = path.resolve(/* turbopackIgnore: true */ base, file)
   if (resolved !== base && !resolved.startsWith(base + path.sep)) {
     throw new DataSourceError(
       `O arquivo SQLite precisa ficar dentro de ${base} (variável SQLBOARD_SQLITE_DIR).`,

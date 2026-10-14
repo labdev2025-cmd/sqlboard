@@ -7,10 +7,16 @@ const nextConfig: NextConfig = {
     "pg",
     "pg-cursor",
     "better-sqlite3",
+    "pdfkit",
+    "nodemailer",
     "mysql2",
     "mssql",
     "exceljs",
   ],
+  // Local data (SQLite demos, mail outbox) must never ship in the build.
+  outputFileTracingExcludes: {
+    "/*": ["./data/**/*", "./.data/**/*"],
+  },
   poweredByHeader: false,
   async headers() {
     return [
