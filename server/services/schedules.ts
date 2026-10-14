@@ -127,9 +127,8 @@ async function parseInput(user: CurrentUser, raw: unknown) {
   const domains = allowedDomains()
   const refused = input.recipients.filter((r) => !recipientAllowed(r, domains))
   if (refused.length) {
-    throw badRequest(
-      `Destinatários fora dos domínios permitidos (${domains.join(", ")}): ${refused.join(", ")}.`
-    )
+    const message = `Destinatários fora dos domínios permitidos (${domains.join(", ")}): ${refused.join(", ")}.`
+    throw badRequest(message, [{ path: "recipients", message }])
   }
   if (input.target.type === "query") {
     await getSavedQuery(user, input.target.savedQueryId)

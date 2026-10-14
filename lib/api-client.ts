@@ -56,3 +56,17 @@ export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return "Erro inesperado."
 }
+
+/**
+ * Field messages from a validation error ({ path, message }[] details), keyed
+ * by the first path segment: { recipients: "E-mail inválido." }.
+ */
+export function fieldErrors(error: unknown): Record<string, string> {
+  if (!(error instanceof ApiError) || !Array.isArray(error.details)) return {}
+  const out: Record<string, string> = {}
+  for (const issue of error.details as { path?: string; message?: string }[]) {
+    const key = String(issue.path ?? "").split(".")[0]
+    if (key && issue.message && !out[key]) out[key] = issue.message
+  }
+  return out
+}

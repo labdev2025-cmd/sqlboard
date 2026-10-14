@@ -12,6 +12,7 @@ import {
 
 import { EmptyState } from "@/components/app-shell/states"
 import { ParamsForm } from "@/components/params/param-inputs"
+import { PickerState } from "@/components/picker-state"
 import { SimpleSelect } from "@/components/simple-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -39,8 +40,11 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -56,7 +60,7 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
-import { api, errorMessage } from "@/lib/api-client"
+import { api, errorMessage, fieldErrors } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
 import {
   FORMAT_LABELS,
@@ -195,14 +199,12 @@ export function SchedulesManager() {
                 <TableRow key={row.id}>
                   <TableCell className="max-w-64">
                     <div className="flex flex-col gap-0.5">
-                      <span className="truncate font-medium">
-                        {row.name}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium">{row.name}</span>
                         {!row.enabled ? (
-                          <Badge variant="secondary" className="ml-2">
-                            pausado
-                          </Badge>
+                          <Badge variant="secondary">pausado</Badge>
                         ) : null}
-                      </span>
+                      </div>
                       <span className="truncate text-xs text-muted-foreground">
                         {row.target.type === "query" ? "Query" : "Tela"}:{" "}
                         {row.target.name} · {FORMAT_LABELS[row.format]} ·{" "}
@@ -271,6 +273,9 @@ export function SchedulesManager() {
                               variant="ghost"
                               size="icon"
                               aria-label={`Excluir ${row.name}`}
+                              disabled={
+                                remove.isPending && remove.variables === row.id
+                              }
                             />
                           }
                         >
@@ -397,6 +402,8 @@ function ScheduleDialog({
     },
   })
 
+  const errors = fieldErrors(save.error)
+
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <DialogContent className="sm:max-w-xl">
@@ -416,12 +423,12 @@ function ScheduleDialog({
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
-            {save.isError ? (
+            {save.isError && !Object.keys(errors).length ? (
               <Alert variant="destructive" role="alert">
                 <AlertDescription>{errorMessage(save.error)}</AlertDescription>
               </Alert>
             ) : null}
-            <Field>
+            <Field data-invalid={errors.name ? true : undefined}>
               <FieldLabel htmlFor="schedule-name">Nome</FieldLabel>
               <Input
                 id="schedule-name"
@@ -429,7 +436,9 @@ function ScheduleDialog({
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoComplete="off"
+                aria-invalid={errors.name ? true : undefined}
               />
+              {errors.name ? <FieldError>{errors.name}</FieldError> : null}
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field>
@@ -468,6 +477,19 @@ function ScheduleDialog({
                   }}
                   disabled={queries.isPending || apps.isPending}
                 />
+                <PickerState
+                  error={targetType === "query" ? queries.error : apps.error}
+                  empty={
+                    targetType === "query"
+                      ? queries.data?.length === 0
+                      : apps.data?.every((a) => a.status !== "published")
+                  }
+                  emptyText={
+                    targetType === "query"
+                      ? "Nenhuma query salva nas conexões que você usa."
+                      : "Nenhuma tela publicada que você possa ver."
+                  }
+                />
               </Field>
             </div>
             {targetType === "app" ? (
@@ -478,8 +500,8 @@ function ScheduleDialog({
               </FieldDescription>
             ) : null}
             {selectedQuery?.params.length ? (
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-sm font-medium">Parâmetros</legend>
+              <FieldSet className="gap-2">
+                <FieldLegend variant="label">Parâmetros</FieldLegend>
                 <ParamsForm
                   params={selectedQuery.params}
                   values={values}
@@ -489,7 +511,7 @@ function ScheduleDialog({
                   idPrefix="schedule-param"
                   className="sm:grid-cols-2 lg:grid-cols-2"
                 />
-              </fieldset>
+              </FieldSet>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field>
@@ -511,7 +533,7 @@ function ScheduleDialog({
                 />
               </Field>
             </div>
-            <Field>
+            <Field data-invalid={errors.recipients ? true : undefined}>
               <FieldLabel htmlFor="schedule-recipients">
                 Destinatários
               </FieldLabel>
@@ -522,10 +544,14 @@ function ScheduleDialog({
                 placeholder="pessoa@empresa.com, equipe@empresa.com"
                 rows={2}
                 required
+                aria-invalid={errors.recipients ? true : undefined}
               />
               <FieldDescription>
                 Separe os e-mails por vírgula ou quebra de linha.
               </FieldDescription>
+              {errors.recipients ? (
+                <FieldError>{errors.recipients}</FieldError>
+              ) : null}
             </Field>
             <Field orientation="horizontal">
               <Switch

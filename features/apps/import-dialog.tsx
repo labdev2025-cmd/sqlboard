@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { UploadIcon } from "lucide-react"
 
+import { PickerState } from "@/components/picker-state"
 import { SimpleSelect } from "@/components/simple-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,8 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
@@ -142,12 +145,17 @@ export function ImportAppDialog() {
               />
             </Field>
             {missing.length ? (
-              <fieldset className="flex flex-col gap-3">
-                <legend className="mb-1 text-sm font-medium">Conexões</legend>
+              <FieldSet className="gap-3">
+                <FieldLegend variant="label">Conexões</FieldLegend>
                 <FieldDescription>
                   O arquivo usa conexões que não existem aqui ou às quais você
                   não tem acesso. Escolha qual usar em cada caso.
                 </FieldDescription>
+                <PickerState
+                  error={connections.error}
+                  empty={connections.data?.length === 0}
+                  emptyText="Você não tem acesso a nenhuma conexão. Peça acesso a um administrador."
+                />
                 {missing.map((m, index) => (
                   <Field key={m.connectionId}>
                     <FieldLabel htmlFor={`import-map-${index}`}>
@@ -160,17 +168,18 @@ export function ImportAppDialog() {
                         label: c.name,
                       }))}
                       value={mapping[m.connectionId] ?? null}
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
+                        importApp.reset()
                         setMapping((prev) => ({
                           ...prev,
                           [m.connectionId]: value,
                         }))
-                      }
+                      }}
                       disabled={connections.isPending}
                     />
                   </Field>
                 ))}
-              </fieldset>
+              </FieldSet>
             ) : null}
           </FieldGroup>
           <DialogFooter>

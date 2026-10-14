@@ -23,17 +23,9 @@ import {
 } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useDebounced } from "@/hooks/use-debounced"
 import { api, errorMessage } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
-
-function useDebounced<T>(value: T, delay = 250) {
-  const [debounced, setDebounced] = React.useState(value)
-  React.useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
-}
 
 export function useSavedQueries(
   filters: { q?: string; tag?: string; mine?: boolean } = {}

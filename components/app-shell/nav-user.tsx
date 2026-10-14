@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ChevronsUpDownIcon,
@@ -122,7 +123,7 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/settings/tokens")}>
+              <DropdownMenuItem render={<Link href="/settings/tokens" />}>
                 <KeyRoundIcon />
                 Tokens de API
               </DropdownMenuItem>

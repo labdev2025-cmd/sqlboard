@@ -135,7 +135,9 @@ function validate(sqlText: string, dialect: SqlDialect) {
   try {
     assertSingleWriteStatement(sqlText, dialect)
   } catch (error) {
-    if (error instanceof SqlParamError) throw badRequest(error.message)
+    if (error instanceof SqlParamError) {
+      throw badRequest(error.message, [{ path: "sql", message: error.message }])
+    }
     throw error
   }
 }
@@ -144,9 +146,9 @@ async function parseInput(raw: unknown) {
   const input = writeActionInputSchema.parse(raw)
   const connection = await getConnectionRow(input.connectionId)
   if (connection.purpose !== "write") {
-    throw badRequest(
+    const message =
       "Escolha uma conexão cadastrada com uso “Escrita controlada”."
-    )
+    throw badRequest(message, [{ path: "connectionId", message }])
   }
   const dialect = connection.dialect as SqlDialect
   validate(input.sql, dialect)

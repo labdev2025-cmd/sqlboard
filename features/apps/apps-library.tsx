@@ -74,6 +74,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useDebounced } from "@/hooks/use-debounced"
 import { api, errorMessage } from "@/lib/api-client"
 import type { SavedQueryView } from "@/lib/queries/schema"
 
@@ -89,15 +90,6 @@ type AppItem = {
   status: "draft" | "published"
   canEdit: boolean
   shared: boolean
-}
-
-function useDebounced<T>(value: T, delay = 250) {
-  const [debounced, setDebounced] = React.useState(value)
-  React.useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
 }
 
 const BLANK = "__blank__"
@@ -333,8 +325,9 @@ export function AppsLibrary({ canCreate }: { canCreate: boolean }) {
         >
           <ToggleGroupItem value="all">Todas</ToggleGroupItem>
           <ToggleGroupItem value="mine">Minhas</ToggleGroupItem>
-          <ToggleGroupItem value="shared">
-            Compartilhadas comigo
+          <ToggleGroupItem value="shared" aria-label="Compartilhadas comigo">
+            <span className="sm:hidden">Comigo</span>
+            <span className="hidden sm:inline">Compartilhadas comigo</span>
           </ToggleGroupItem>
         </ToggleGroup>
         {canCreate ? (

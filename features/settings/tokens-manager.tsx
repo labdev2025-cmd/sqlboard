@@ -35,7 +35,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -54,7 +59,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
-import { api, errorMessage } from "@/lib/api-client"
+import { api, errorMessage, fieldErrors } from "@/lib/api-client"
 
 type TokenView = {
   id: string
@@ -105,7 +110,7 @@ export function TokensManager({ origin }: { origin: string }) {
         <CreateTokenDialog origin={origin} />
       </div>
       {tokens.isPending ? (
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" aria-busy="true" />
       ) : tokens.isError ? (
         <Alert variant="destructive">
           <AlertDescription>{errorMessage(tokens.error)}</AlertDescription>
@@ -137,7 +142,9 @@ export function TokensManager({ origin }: { origin: string }) {
                 <TableRow key={token.id}>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{token.name}</span>
+                      <span className="font-medium break-words">
+                        {token.name}
+                      </span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {token.prefix}…
                       </span>
@@ -160,6 +167,9 @@ export function TokensManager({ origin }: { origin: string }) {
                             variant="ghost"
                             size="icon"
                             aria-label={`Revogar ${token.name}`}
+                            disabled={
+                              revoke.isPending && revoke.variables === token.id
+                            }
                           />
                         }
                       >
@@ -198,10 +208,10 @@ export function TokensManager({ origin }: { origin: string }) {
           Conectar um agente (MCP)
         </h2>
         <p className="text-sm text-muted-foreground">
-          Endereço do servidor MCP (HTTP): <code>{origin}/api/mcp</code>, com o
-          cabeçalho <code>Authorization: Bearer &lt;token&gt;</code>. O agente
-          cria e edita rascunhos; publicar continua sendo feito por você na
-          tela.
+          Endereço do servidor MCP (HTTP):{" "}
+          <code className="break-all">{origin}/api/mcp</code>, com o cabeçalho{" "}
+          <code>Authorization: Bearer &lt;token&gt;</code>. O agente cria e
+          edita rascunhos; publicar continua sendo feito por você na tela.
         </p>
       </section>
     </div>
@@ -210,9 +220,11 @@ export function TokensManager({ origin }: { origin: string }) {
 
 function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
   return (
     <InputGroup>
       <InputGroupInput
+        ref={inputRef}
         readOnly
         value={value}
         aria-label={label}
@@ -221,10 +233,24 @@ function CopyField({ value, label }: { value: string; label: string }) {
       />
       <InputGroupAddon align="inline-end">
         <InputGroupButton
-          aria-label={`Copiar ${label.toLowerCase()}`}
+          aria-label={
+            copied ? `${label} copiado` : `Copiar ${label.toLowerCase()}`
+          }
           onClick={async () => {
-            await navigator.clipboard?.writeText(value).catch(() => undefined)
-            setCopied(true)
+            try {
+              await navigator.clipboard.writeText(value)
+              setCopied(true)
+              toast.add({ title: `${label} copiado`, type: "success" })
+            } catch {
+              // Without clipboard access (HTTP, permission): select the text
+              // so the person can copy it by hand.
+              inputRef.current?.select()
+              toast.add({
+                title: "Não foi possível copiar",
+                description: "O texto ficou selecionado: copie com Ctrl+C.",
+                type: "error",
+              })
+            }
           }}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
@@ -252,6 +278,8 @@ function CreateTokenDialog({ origin }: { origin: string }) {
       void queryClient.invalidateQueries({ queryKey: ["tokens"] }),
   })
   const created = create.data
+
+  const errors = fieldErrors(create.error)
 
   return (
     <Dialog
@@ -306,14 +334,14 @@ function CreateTokenDialog({ origin }: { origin: string }) {
               </DialogDescription>
             </DialogHeader>
             <FieldGroup>
-              {create.isError ? (
+              {create.isError && !Object.keys(errors).length ? (
                 <Alert variant="destructive" role="alert">
                   <AlertDescription>
                     {errorMessage(create.error)}
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <Field>
+              <Field data-invalid={errors.name ? true : undefined}>
                 <FieldLabel htmlFor="token-name">Nome</FieldLabel>
                 <Input
                   id="token-name"
@@ -322,7 +350,9 @@ function CreateTokenDialog({ origin }: { origin: string }) {
                   placeholder="Ex.: Agente do time de vendas"
                   required
                   autoComplete="off"
+                  aria-invalid={errors.name ? true : undefined}
                 />
+                {errors.name ? <FieldError>{errors.name}</FieldError> : null}
               </Field>
               <Field>
                 <FieldLabel htmlFor="token-expiry">Validade</FieldLabel>

@@ -68,7 +68,11 @@ test.describe("ações de escrita (admin cadastra)", () => {
     // A DELETE is refused by the server.
     await dialog.getByLabel("Comando SQL").fill("delete from loja.solicitacoes")
     await dialog.getByRole("button", { name: "Salvar" }).click()
-    await expect(dialog.getByRole("alert")).toContainText("INSERT ou UPDATE")
+    await expect(dialog.getByLabel("Comando SQL")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    )
+    await expect(dialog.getByText(/aceitam só INSERT ou UPDATE/)).toBeVisible()
     await dialog
       .getByLabel("Comando SQL")
       .fill(

@@ -13,6 +13,7 @@ import {
 
 import { EmptyState } from "@/components/app-shell/states"
 import { ParamsForm } from "@/components/params/param-inputs"
+import { PickerState } from "@/components/picker-state"
 import { SimpleSelect } from "@/components/simple-select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -49,8 +50,11 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -70,7 +74,7 @@ import type {
   ActionResult,
   WriteActionView,
 } from "@/lib/actions/schema"
-import { api, errorMessage } from "@/lib/api-client"
+import { api, errorMessage, fieldErrors } from "@/lib/api-client"
 import type { ConnectionView } from "@/lib/connections/schema"
 import { syncParams } from "@/lib/sql-params/infer"
 import {
@@ -167,6 +171,9 @@ export function ActionsManager({ isAdmin }: { isAdmin: boolean }) {
                             variant="ghost"
                             size="icon"
                             aria-label={`Excluir ${action.name}`}
+                            disabled={
+                              remove.isPending && remove.variables === action.id
+                            }
                           />
                         }
                       >
@@ -480,6 +487,8 @@ function ActionFormDialog({
   const setType = (paramName: string, type: ParamType) =>
     setParams(detected.map((p) => (p.name === paramName ? { ...p, type } : p)))
 
+  const errors = fieldErrors(save.error)
+
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <DialogContent className="sm:max-w-2xl">
@@ -498,13 +507,13 @@ function ActionFormDialog({
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
-            {save.isError ? (
+            {save.isError && !Object.keys(errors).length ? (
               <Alert variant="destructive" role="alert">
                 <AlertDescription>{errorMessage(save.error)}</AlertDescription>
               </Alert>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field>
+              <Field data-invalid={errors.name ? true : undefined}>
                 <FieldLabel htmlFor="action-name">Nome</FieldLabel>
                 <Input
                   id="action-name"
@@ -512,9 +521,11 @@ function ActionFormDialog({
                   onChange={(e) => setName(e.target.value)}
                   required
                   autoComplete="off"
+                  aria-invalid={errors.name ? true : undefined}
                 />
+                {errors.name ? <FieldError>{errors.name}</FieldError> : null}
               </Field>
-              <Field>
+              <Field data-invalid={errors.connectionId ? true : undefined}>
                 <FieldLabel htmlFor="action-connection">
                   Conexão de escrita
                 </FieldLabel>
@@ -528,6 +539,14 @@ function ActionFormDialog({
                   onValueChange={setConnectionId}
                   disabled={connections.isPending}
                 />
+                <PickerState
+                  error={connections.error}
+                  empty={connections.data?.length === 0}
+                  emptyText="Nenhuma conexão de escrita. Cadastre uma em Conexões com uso “Escrita controlada”."
+                />
+                {errors.connectionId ? (
+                  <FieldError>{errors.connectionId}</FieldError>
+                ) : null}
               </Field>
             </div>
             <Field>
@@ -539,7 +558,7 @@ function ActionFormDialog({
                 autoComplete="off"
               />
             </Field>
-            <Field>
+            <Field data-invalid={errors.sql ? true : undefined}>
               <FieldLabel htmlFor="action-sql">Comando SQL</FieldLabel>
               <Textarea
                 id="action-sql"
@@ -550,13 +569,13 @@ function ActionFormDialog({
                 className="font-mono text-sm"
                 placeholder="update loja.solicitacoes set status = :status where id = :id"
                 required
+                aria-invalid={errors.sql ? true : undefined}
               />
+              {errors.sql ? <FieldError>{errors.sql}</FieldError> : null}
             </Field>
             {detected.length ? (
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-sm font-medium">
-                  Tipos dos parâmetros
-                </legend>
+              <FieldSet className="gap-2">
+                <FieldLegend variant="label">Tipos dos parâmetros</FieldLegend>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {detected.map((p) => (
                     <Field key={p.name}>
@@ -572,9 +591,12 @@ function ActionFormDialog({
                     </Field>
                   ))}
                 </div>
-              </fieldset>
+              </FieldSet>
             ) : null}
-            <Field className="sm:max-w-56">
+            <Field
+              className="sm:max-w-56"
+              data-invalid={errors.maxAffectedRows ? true : undefined}
+            >
               <FieldLabel htmlFor="action-max">
                 Máximo de linhas afetadas
               </FieldLabel>
@@ -587,7 +609,11 @@ function ActionFormDialog({
                 value={maxRows}
                 onChange={(e) => setMaxRows(e.target.value)}
                 required
+                aria-invalid={errors.maxAffectedRows ? true : undefined}
               />
+              {errors.maxAffectedRows ? (
+                <FieldError>{errors.maxAffectedRows}</FieldError>
+              ) : null}
               <FieldDescription>
                 Acima disso, nada é gravado (a transação é desfeita).
               </FieldDescription>

@@ -4,6 +4,7 @@ import * as React from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { CheckIcon, CopyIcon, SparklesIcon } from "lucide-react"
 
+import { PickerState } from "@/components/picker-state"
 import { SimpleSelect } from "@/components/simple-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -130,7 +131,7 @@ export function AiScreenDialog({
         <SparklesIcon data-icon="inline-start" />
         Gerar com IA
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Gerar tela com IA</DialogTitle>
           <DialogDescription>
@@ -163,6 +164,11 @@ export function AiScreenDialog({
               onValueChange={setConnectionId}
               disabled={connections.isPending}
             />
+            <PickerState
+              error={connections.error}
+              empty={connections.data?.length === 0}
+              emptyText="Você não tem acesso a nenhuma conexão de leitura."
+            />
           </Field>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -178,10 +184,17 @@ export function AiScreenDialog({
               <Button
                 type="button"
                 onClick={async () => {
-                  await navigator.clipboard
-                    ?.writeText(prompt)
-                    .catch(() => undefined)
-                  setCopied(true)
+                  try {
+                    await navigator.clipboard.writeText(prompt)
+                    setCopied(true)
+                  } catch {
+                    toast.add({
+                      title: "Não foi possível copiar",
+                      description:
+                        "Selecione o texto do campo Prompt e copie com Ctrl+C.",
+                      type: "error",
+                    })
+                  }
                 }}
               >
                 {copied ? (
