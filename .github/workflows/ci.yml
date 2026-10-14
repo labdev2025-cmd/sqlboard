@@ -95,3 +95,55 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
+
+  docker:
+    # Builds the production image and checks that it boots, migrates the
+    # metadata database and serves pages (Docker is not available locally).
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Imagem de produção
+        run: docker build -t sqlboard:ci .
+      - name: Sobe o container
+        run: >-
+          docker run -d --name sqlboard --network host
+          -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
+          -e BETTER_AUTH_SECRET=ci-secret-ci-secret-ci-secret-0123456789
+          -e BETTER_AUTH_URL=http://localhost:3000
+          -e SQLBOARD_ENCRYPTION_KEY=Y2ktb25seS1rZXktY2ktb25seS1rZXktMzJieXRlcyE=
+          sqlboard:ci
+      - name: Saúde, migrações e página de login
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:3000/api/health && break
+            sleep 2
+          done
+          curl -fsS http://localhost:3000/login -o /dev/null
+          psql postgres://postgres:postgres@localhost:5432/postgres -tAc \
+            "select count(*) from __drizzle_migrations" 2>/dev/null \
+            || psql postgres://postgres:postgres@localhost:5432/postgres -tAc \
+            "select count(*) from drizzle.__drizzle_migrations"
+          for i in $(seq 1 60); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' sqlboard)
+            [ "$status" = "healthy" ] && break
+            sleep 2
+          done
+          test "$status" = "healthy"
+      - name: Logs do container
+        if: always()
+        run: docker logs sqlboard

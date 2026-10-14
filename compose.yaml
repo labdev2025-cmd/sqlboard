@@ -31,8 +31,14 @@ services:
       SQLBOARD_ENCRYPTION_KEY_VERSION: ${SQLBOARD_ENCRYPTION_KEY_VERSION:-1}
       SMTP_URL: ${SMTP_URL:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      SQLBOARD_MAIL_ALLOWED_DOMAINS: ${SQLBOARD_MAIL_ALLOWED_DOMAINS:-}
     ports:
       - "3000:3000"
+    volumes:
+      - appdata:/app/data
+      - outbox:/app/.data
 
 volumes:
   pgdata:
+  appdata:
+  outbox:

@@ -26,7 +26,15 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 # SQL migrations applied by instrumentation.ts on boot.
 COPY --from=build /app/server/db/migrations ./server/db/migrations
-ENV SQLBOARD_MIGRATE_ON_BOOT=on
+# Writable data: SQLite files (read-only connections) and the mail outbox
+# used when SMTP_URL is not set. Mount volumes here to keep them.
+RUN mkdir -p /app/data/sqlite /app/.data/outbox && chown -R sqlboard:sqlboard /app/data /app/.data
+ENV SQLBOARD_MIGRATE_ON_BOOT=on \
+    SQLBOARD_SQLITE_DIR=/app/data/sqlite \
+    SQLBOARD_OUTBOX_DIR=/app/.data/outbox
+VOLUME ["/app/data", "/app/.data"]
 USER sqlboard
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 CMD ["node", "server.js"]

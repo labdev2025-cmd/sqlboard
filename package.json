@@ -19,7 +19,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "setup": "bash scripts/dev-setup.sh",
     "apps:pull": "node scripts/apps-sync.mjs pull",
-    "apps:push": "node scripts/apps-sync.mjs push"
+    "apps:push": "node scripts/apps-sync.mjs push",
+    "keys:rotate": "tsx scripts/rotate-keys.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
