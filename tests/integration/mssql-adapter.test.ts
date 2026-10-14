@@ -39,7 +39,7 @@ describe.skipIf(!host)("execução segura no SQL Server", () => {
   it("usa @pN, devolve tipos e preserva precisão", async () => {
     const result = await run(
       ro,
-      "select top 3 id, uf, total, codigo_grande, data_pedido from dbo.pedidos p join dbo.clientes c on c.id = p.cliente_id where uf = :uf and :uf = :uf order by p.id",
+      "select top 3 p.id, c.uf, p.total, p.codigo_grande, p.data_pedido from dbo.pedidos p join dbo.clientes c on c.id = p.cliente_id where c.uf = :uf and :uf = :uf order by p.id",
       { uf: "SP" }
     )
     expect(

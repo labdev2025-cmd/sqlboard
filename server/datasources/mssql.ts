@@ -198,14 +198,12 @@ export class MssqlAdapter implements DataSourceAdapter {
             )
             let columns: ResultColumn[] = []
             const rows: unknown[][] = []
+            // Settle only on "done" (always emitted in stream mode, also after
+            // "error"): rolling back while the request is still active fails
+            // with EREQINPROG and would leak the pooled connection.
+            let truncated = false
+            let failure: unknown = null
             let finished = false
-            const finish = (fn: () => void) => {
-              if (finished) return
-              finished = true
-              clearTimeout(timer)
-              opts.signal?.removeEventListener("abort", onAbort)
-              fn()
-            }
             const handle: ExecutionHandle = {
               cancel: async () => {
                 cancelled = true
@@ -237,30 +235,32 @@ export class MssqlAdapter implements DataSourceAdapter {
               }
             )
             request.on("row", (row: unknown[]) => {
-              if (finished) return
+              if (truncated) return
               rows.push(row)
               if (rows.length > maxRows) {
-                request.pause()
+                // N+1 rows: stop the statement, keep what we have.
+                truncated = true
                 request.cancel()
-                finish(() =>
-                  resolve(this.result(columns, rows, maxRows, started))
-                )
               }
             })
-            request.on("error", (error: unknown) =>
-              finish(() =>
-                reject(
-                  cancelled && !timedOut
-                    ? new DataSourceError("Execução cancelada.", "cancelled")
-                    : translateMssqlError(error, timedOut)
-                )
-              )
-            )
-            request.on("done", () =>
-              finish(() =>
+            request.on("error", (error: unknown) => {
+              failure ??= error
+            })
+            request.on("done", () => {
+              if (finished) return
+              finished = true
+              clearTimeout(timer)
+              opts.signal?.removeEventListener("abort", onAbort)
+              if (truncated) {
                 resolve(this.result(columns, rows, maxRows, started))
-              )
-            )
+              } else if (cancelled && !timedOut) {
+                reject(new DataSourceError("Execução cancelada.", "cancelled"))
+              } else if (failure || timedOut) {
+                reject(translateMssqlError(failure, timedOut))
+              } else {
+                resolve(this.result(columns, rows, maxRows, started))
+              }
+            })
             opts.onStart?.(handle)
             void request.query(query.sql)
           })
